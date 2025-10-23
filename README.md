@@ -150,6 +150,6 @@ This project was completed as part of the LearnWeb3 Stacks Developer Degree prog
 ---
 
 **Status**: ✅ Course Assignment Completed Successfully  
-**Date**: 2024  
+**Date**: OCTOBER, 2025
 **Platform**: LearnWeb3 Stacks Developer Degree  
 **Blockchain**: Stacks Testnet
