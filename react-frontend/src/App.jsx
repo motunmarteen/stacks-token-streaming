@@ -8,7 +8,9 @@ import {
   principalCV,
   tupleCV,
   AnchorMode,
-  PostConditionMode
+  PostConditionMode,
+  createSTXPostCondition,
+  FungibleConditionCode
 } from '@stacks/transactions'
 import toast, { Toaster } from 'react-hot-toast'
 import StreamList from './components/StreamList'
@@ -225,6 +227,7 @@ function App() {
         functionArgs,
         network: 'testnet',
         userSession,
+        postConditions: options.postConditions || [],
         onFinish: (data) => {
           console.log('Transaction finished:', data)
           toast.success(`Transaction submitted! TX: ${data.txId}`)
@@ -269,8 +272,15 @@ function App() {
   const createStream = async (formData) => {
     const { recipient, initialBalance, startBlock, stopBlock, paymentPerBlock } = formData
     
-    // Note: openContractCall handles post-conditions automatically via the wallet
-    // We don't need to manually add them for wallet-signed transactions
+    // Create post-condition to verify STX was sent from user
+    const postConditions = [
+      createSTXPostCondition(
+        userData.profile.stxAddress.testnet,
+        FungibleConditionCode.Equal,
+        BigInt(initialBalance)
+      )
+    ]
+    
     await handleContractCall('stream-to', [
       principalCV(recipient),
       uintCV(initialBalance),
@@ -279,7 +289,9 @@ function App() {
         'stop-block': uintCV(stopBlock),
       }),
       uintCV(paymentPerBlock),
-    ])
+    ], {
+      postConditions
+    })
   }
 
   useEffect(() => {
