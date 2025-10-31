@@ -196,7 +196,7 @@ function App() {
         contractName: CONTRACT_NAME,
         functionName,
         functionArgs,
-        network: 'testnet',
+        network: testnetNetwork,
         userSession,
         onFinish: (data) => {
           toast.success(`Transaction submitted! TX: ${data.txId}`)
