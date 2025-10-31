@@ -53,7 +53,7 @@ function App() {
         icon: window.location.origin + '/icon.png',
       },
       redirectTo: '/',
-      network: testnetNetwork,
+      network: 'testnet',
       onFinish: () => {
         const data = userSession.loadUserData()
         setUserData(data)
@@ -198,7 +198,7 @@ function App() {
         functionName,
         functionArgs,
         senderKey: userData.appPrivateKey,
-        network: testnetNetwork,
+        network: 'testnet',
         anchorMode: AnchorMode.Any,
         postConditionMode: PostConditionMode.Allow,
         ...options,
