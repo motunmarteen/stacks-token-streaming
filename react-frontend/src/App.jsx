@@ -58,12 +58,14 @@ function App() {
           icon: window.location.origin + '/icon.png',
         },
         redirectTo: '/',
-        network: testnetNetwork,
+        network: 'testnet',
         onFinish: () => {
           try {
             const data = userSession.loadUserData()
+            console.log('User data loaded:', data)
+            console.log('User address:', data.profile.stxAddress.testnet)
             setUserData(data)
-            toast.success('Wallet connected!')
+            toast.success(`Wallet connected! Address: ${data.profile.stxAddress.testnet.substring(0, 10)}...`)
             loadStreams()
           } catch (error) {
             console.error('Error loading user data:', error)
@@ -207,6 +209,14 @@ function App() {
     try {
       setLoading(true)
       
+      console.log('Calling contract:', {
+        contractAddress: CONTRACT_ADDRESS,
+        contractName: CONTRACT_NAME,
+        functionName,
+        network: 'testnet',
+        userAddress: userData.profile.stxAddress.testnet
+      })
+
       await openContractCall({
         contractAddress: CONTRACT_ADDRESS,
         contractName: CONTRACT_NAME,
@@ -215,11 +225,13 @@ function App() {
         network: 'testnet',
         userSession,
         onFinish: (data) => {
+          console.log('Transaction finished:', data)
           toast.success(`Transaction submitted! TX: ${data.txId}`)
           setTimeout(() => loadStreams(), 2000)
           setLoading(false)
         },
         onCancel: () => {
+          console.log('Transaction cancelled')
           toast.error('Transaction cancelled')
           setLoading(false)
         },
