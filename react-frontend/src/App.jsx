@@ -30,8 +30,19 @@ function App() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (userSession.isUserSignedIn()) {
-      setUserData(userSession.loadUserData())
+    // Check if user is signed in without throwing errors
+    try {
+      const isSignedIn = userSession.isUserSignedIn()
+      if (isSignedIn) {
+        const data = userSession.loadUserData()
+        setUserData(data)
+      }
+    } catch (error) {
+      // No session data yet - this is normal before wallet connection
+      // Silently handle the NoSessionDataError
+      if (error.name !== 'NoSessionDataError') {
+        console.error('Error checking session:', error)
+      }
     }
   }, [])
 
