@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { callReadOnlyFunction } from '@stacks/transactions'
-import { StacksTestnet } from '@stacks/network'
+import { createNetwork } from '@stacks/network'
 import { uintCV, principalCV } from '@stacks/transactions'
+
+const testnetNetwork = createNetwork('testnet')
 
 const CONTRACT_ADDRESS = 'ST3DJAD94M03E59W51PWD3VT0XH3S8VXZPXT59P5G'
 const CONTRACT_NAME = 'stream'
@@ -18,7 +20,7 @@ const StreamList = ({ streams, userAddress, onPause, onResume, onCancel, onWithd
       for (const stream of streams) {
         try {
           const balanceResult = await callReadOnlyFunction({
-            network: new StacksTestnet(),
+            network: testnetNetwork,
             contractAddress: CONTRACT_ADDRESS,
             contractName: CONTRACT_NAME,
             functionName: 'balance-of',
@@ -27,7 +29,7 @@ const StreamList = ({ streams, userAddress, onPause, onResume, onCancel, onWithd
           })
 
           const statusResult = await callReadOnlyFunction({
-            network: new StacksTestnet(),
+            network: testnetNetwork,
             contractAddress: CONTRACT_ADDRESS,
             contractName: CONTRACT_NAME,
             functionName: 'get-stream-status',

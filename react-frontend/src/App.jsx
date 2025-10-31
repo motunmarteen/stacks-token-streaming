@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import { AppConfig, UserSession, showConnect } from '@stacks/connect'
-import { StacksTestnet } from '@stacks/network'
+import { createNetwork } from '@stacks/network'
 import { 
   callReadOnlyFunction, 
   contractPrincipalCV, 
   uintCV, 
   principalCV,
   tupleCV,
-  contractCall,
+  makeContractCall,
   broadcastTransaction,
   AnchorMode,
   PostConditionMode
@@ -19,6 +19,7 @@ import Header from './components/Header'
 
 const CONTRACT_ADDRESS = 'ST3DJAD94M03E59W51PWD3VT0XH3S8VXZPXT59P5G'
 const CONTRACT_NAME = 'stream'
+const testnetNetwork = createNetwork('testnet')
 
 const appConfig = new AppConfig(['store_write', 'publish_data'])
 const userSession = new UserSession({ appConfig })
@@ -67,7 +68,7 @@ function App() {
     try {
       setLoading(true)
       const latestIdResult = await callReadOnlyFunction({
-        network: new StacksTestnet(),
+        network: testnetNetwork,
         contractAddress: CONTRACT_ADDRESS,
         contractName: CONTRACT_NAME,
         functionName: 'get-latest-stream-id',
@@ -81,7 +82,7 @@ function App() {
       for (let i = 0; i < latestId; i++) {
         try {
           const streamResult = await callReadOnlyFunction({
-            network: new StacksTestnet(),
+            network: testnetNetwork,
             contractAddress: CONTRACT_ADDRESS,
             contractName: CONTRACT_NAME,
             functionName: 'get-stream',
@@ -124,14 +125,14 @@ function App() {
         functionName,
         functionArgs,
         senderKey: userData.appPrivateKey,
-        network: new StacksTestnet(),
+        network: testnetNetwork,
         anchorMode: AnchorMode.Any,
         postConditionMode: PostConditionMode.Allow,
         ...options,
       }
 
-      const transaction = await contractCall(txOptions)
-      const broadcastResponse = await broadcastTransaction(transaction, new StacksTestnet())
+      const transaction = await makeContractCall(txOptions)
+      const broadcastResponse = await broadcastTransaction(transaction, testnetNetwork)
       
       if (broadcastResponse.error) {
         throw new Error(broadcastResponse.error)

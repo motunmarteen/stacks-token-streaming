@@ -9,10 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@stacks/connect": "^7.8.1",
+    "@stacks/network": "^7.2.0",
+    "@stacks/transactions": "^6.13.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "@stacks/connect": "^7.8.1",
-    "@stacks/transactions": "^6.13.0",
     "react-hot-toast": "^2.4.1"
   },
   "devDependencies": {
