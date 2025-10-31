@@ -46,24 +46,40 @@ function App() {
   }, [])
 
   const connectWallet = async () => {
-    showConnect({
-      appDetails: {
-        name: 'Token Streaming Protocol',
-        icon: window.location.origin + '/icon.png',
-      },
-      redirectTo: '/',
-      network: 'testnet',
-      onFinish: () => {
-        const data = userSession.loadUserData()
-        setUserData(data)
-        toast.success('Wallet connected!')
-        loadStreams()
-      },
-      onCancel: () => {
-        toast.error('Wallet connection cancelled')
-      },
-      userSession,
-    })
+    try {
+      // Check if wallet extension is available
+      if (typeof window === 'undefined' || !window.StacksProvider) {
+        toast.error('Please install Leather or Xverse wallet extension')
+        return
+      }
+
+      await showConnect({
+        appDetails: {
+          name: 'Token Streaming Protocol',
+          icon: window.location.origin + '/icon.png',
+        },
+        redirectTo: '/',
+        network: testnetNetwork,
+        onFinish: () => {
+          try {
+            const data = userSession.loadUserData()
+            setUserData(data)
+            toast.success('Wallet connected!')
+            loadStreams()
+          } catch (error) {
+            console.error('Error loading user data:', error)
+            toast.error('Connected but failed to load user data')
+          }
+        },
+        onCancel: () => {
+          toast.error('Wallet connection cancelled')
+        },
+        userSession,
+      })
+    } catch (error) {
+      console.error('Error connecting wallet:', error)
+      toast.error(`Failed to connect wallet: ${error.message || 'Please make sure your wallet extension is installed and unlocked'}`)
+    }
   }
 
   const disconnectWallet = () => {
