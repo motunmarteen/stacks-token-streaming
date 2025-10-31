@@ -196,11 +196,22 @@ function App() {
 
       console.log(`Total streams loaded: ${streamList.length}`, streamList)
       setStreams(streamList)
+      
       if (streamList.length === 0) {
         console.log('No streams found yet - this might mean:')
         console.log('1. Transaction has not confirmed yet (wait 1-2 minutes)')
         console.log('2. Transaction failed (check explorer)')
         console.log('3. Streams are associated with a different address')
+        console.log('4. Contract read functions are not available')
+        
+        // Show helpful message to user
+        toast.info('No streams found. If you just created one, wait 1-2 minutes and click Refresh.', {
+          duration: 5000
+        })
+      } else {
+        toast.success(`✅ Loaded ${streamList.length} stream(s)!`, {
+          duration: 3000
+        })
       }
     } catch (error) {
       console.error('Error loading streams:', error)
@@ -287,25 +298,35 @@ function App() {
           const explorerUrl = `https://explorer.stacks.co/txid/${txId}?chain=testnet`
           
           toast.success(
-            `Transaction submitted! TX: ${txId.substring(0, 8)}...\n⚠️ Note: Failed transactions still cost fees!\nView: ${explorerUrl}`,
+            `Transaction submitted! TX: ${txId.substring(0, 8)}...\n⏳ Waiting for confirmation...\nView: ${explorerUrl}`,
             { 
-              duration: 6000,
+              duration: 8000,
               icon: '📤'
             }
           )
           
-          // Check transaction status after submission
-          setTimeout(async () => {
-            const success = await checkTransactionStatus(txId)
-            if (success) {
-              loadStreams()
-            } else {
-              // Still try to load streams in case it succeeded
-              setTimeout(() => loadStreams(), 5000)
-            }
-          }, 5000)
-          
+          // Reset loading state immediately after submission
           setLoading(false)
+          
+          // Wait a bit for transaction to be included, then check status and load streams
+          setTimeout(async () => {
+            console.log('Checking transaction status...')
+            const success = await checkTransactionStatus(txId)
+            
+            // Always try to load streams after a delay (transaction might be confirmed)
+            console.log('Loading streams after transaction...')
+            setTimeout(() => {
+              loadStreams()
+            }, 10000) // Wait 10 seconds for indexing
+            
+            if (success) {
+              // If confirmed, load streams again after a bit more time
+              setTimeout(() => {
+                console.log('Reloading streams after confirmation...')
+                loadStreams()
+              }, 20000)
+            }
+          }, 15000) // Wait 15 seconds before first check
         },
         onCancel: () => {
           console.log('Transaction cancelled')

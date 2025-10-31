@@ -36,13 +36,8 @@ const CreateStreamForm = ({ onSubmit, loading, userAddress }) => {
       paymentPerBlock: Number(formData.paymentPerBlock),
     })
 
-    setFormData({
-      recipient: userAddress || '',
-      initialBalance: '1000000',
-      startBlock: '0',
-      stopBlock: '100',
-      paymentPerBlock: '10000',
-    })
+    // Don't reset form immediately - wait for transaction to complete
+    // The parent component will handle resetting loading state
   }
 
   return (
