@@ -196,7 +196,8 @@ function App() {
         contractName: CONTRACT_NAME,
         functionName,
         functionArgs,
-        network: testnetNetwork,
+        network: 'testnet',
+        userSession,
         onFinish: (data) => {
           toast.success(`Transaction submitted! TX: ${data.txId}`)
           setTimeout(() => loadStreams(), 2000)
