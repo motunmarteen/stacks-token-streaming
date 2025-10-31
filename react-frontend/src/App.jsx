@@ -79,23 +79,32 @@ function App() {
     
     try {
       setLoading(true)
+      const streamList = []
+      let latestId = 0
       
-      // Get latest stream ID
-      const latestIdResult = await callReadOnlyFunction({
-        network: 'testnet',
-        contractAddress: CONTRACT_ADDRESS,
-        contractName: CONTRACT_NAME,
-        functionName: 'get-latest-stream-id',
-        functionArgs: [],
-        senderAddress: userData.profile.stxAddress.testnet,
-      })
+      // Try to get latest stream ID first (if function exists)
+      try {
+        const latestIdResult = await callReadOnlyFunction({
+          network: 'testnet',
+          contractAddress: CONTRACT_ADDRESS,
+          contractName: CONTRACT_NAME,
+          functionName: 'get-latest-stream-id',
+          functionArgs: [],
+          senderAddress: userData.profile.stxAddress.testnet,
+        })
 
-      // Handle response - check if it's an error
-      if (latestIdResult && latestIdResult.value !== undefined) {
-        const latestId = Number(latestIdResult.value) || 0
-        const streamList = []
+        if (latestIdResult && latestIdResult.value !== undefined) {
+          latestId = Number(latestIdResult.value) || 0
+        }
+      } catch (e) {
+        // Function doesn't exist in deployed contract - fallback to sequential loading
+        console.log('get-latest-stream-id not available, using sequential loading:', e.message)
+        latestId = null // null means we'll try sequential loading
+      }
 
-        // Try to load streams up to the latest ID
+      // If we have a latest ID, use it. Otherwise, try sequential loading
+      if (latestId !== null && latestId > 0) {
+        // Load streams up to the latest ID
         for (let i = 0; i < latestId; i++) {
           try {
             const streamResult = await callReadOnlyFunction({
@@ -107,7 +116,6 @@ function App() {
               senderAddress: userData.profile.stxAddress.testnet,
             })
 
-            // Check if result exists and has value
             if (streamResult && streamResult.value) {
               streamList.push({
                 id: i,
@@ -115,21 +123,47 @@ function App() {
               })
             }
           } catch (e) {
-            // Stream doesn't exist or error - skip it
-            console.log(`Stream ${i} not found or error:`, e.message || e)
+            // Stream doesn't exist - skip it
+            console.log(`Stream ${i} not found`)
           }
         }
-
-        setStreams(streamList)
-        if (streamList.length === 0 && latestId === 0) {
-          // No streams yet - this is normal
-          console.log('No streams found yet')
-        }
       } else {
-        // Handle error response
-        console.error('Error getting latest stream ID:', latestIdResult)
-        toast.error('Unable to fetch stream count. Please check your connection.')
-        setStreams([])
+        // Sequential loading: try stream IDs starting from 0 until we hit consecutive failures
+        let consecutiveFailures = 0
+        const maxConsecutiveFailures = 5 // Stop after 5 consecutive failures
+        
+        for (let i = 0; consecutiveFailures < maxConsecutiveFailures; i++) {
+          try {
+            const streamResult = await callReadOnlyFunction({
+              network: 'testnet',
+              contractAddress: CONTRACT_ADDRESS,
+              contractName: CONTRACT_NAME,
+              functionName: 'get-stream',
+              functionArgs: [uintCV(i)],
+              senderAddress: userData.profile.stxAddress.testnet,
+            })
+
+            if (streamResult && streamResult.value) {
+              streamList.push({
+                id: i,
+                ...streamResult.value,
+              })
+              consecutiveFailures = 0 // Reset counter on success
+            } else {
+              consecutiveFailures++
+            }
+          } catch (e) {
+            consecutiveFailures++
+            if (consecutiveFailures >= maxConsecutiveFailures) {
+              break // Stop searching
+            }
+          }
+        }
+      }
+
+      setStreams(streamList)
+      if (streamList.length === 0) {
+        console.log('No streams found yet')
       }
     } catch (error) {
       console.error('Error loading streams:', error)
