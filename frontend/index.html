@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Streaming Protocol - Frontend</title>
+    <script src="https://unpkg.com/@stacks/connect@7.8.1/dist/connect.umd.production.js"></script>
+    <script src="https://unpkg.com/@stacks/transactions@6.13.0/dist/index.umd.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .wallet-section {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+
+        .connected {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .contract-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .contract-info strong {
+            color: #667eea;
+        }
+
+        .info-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌊 Token Streaming Protocol</h1>
+            <p class="subtitle">Built on Stacks Blockchain | LearnWeb3 Course Project</p>
+        </div>
+
+        <div class="wallet-section">
+            <button id="connectWallet" onclick="connectWallet()">Connect Wallet (Xverse/Leather)</button>
+            <div id="walletInfo" style="display: none; margin-top: 15px;">
+                <p class="connected">✓ Connected: <span id="userAddress"></span></p>
+            </div>
+        </div>
+
+        <div class="contract-info">
+            <strong>Contract Address:</strong> ST3DJAD94M03E59W51PWD3VT0XH3S8VXZPXT59P5G.stream<br>
+            <strong>Network:</strong> Stacks Testnet
+        </div>
+
+        <div class="grid">
+            <!-- Create Stream -->
+            <div class="card">
+                <h2>📝 Create Stream</h2>
+                <div class="form-group">
+                    <label>Recipient Address</label>
+                    <input type="text" id="recipient" placeholder="ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM">
+                </div>
+                <div class="form-group">
+                    <label>Initial Balance (microSTX)</label>
+                    <input type="number" id="initialBalance" placeholder="1000000" value="1000000">
+                </div>
+                <div class="form-group">
+                    <label>Start Block</label>
+                    <input type="number" id="startBlock" placeholder="0" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Stop Block</label>
+                    <input type="number" id="stopBlock" placeholder="100" value="100">
+                </div>
+                <div class="form-group">
+                    <label>Payment Per Block (microSTX)</label>
+                    <input type="number" id="paymentPerBlock" placeholder="10000" value="10000">
+                </div>
+                <button onclick="createStream()">Create Stream</button>
+                <div id="createStatus" class="status"></div>
+                <p class="info-text">💡 1 STX = 1,000,000 microSTX</p>
+            </div>
+
+            <!-- Refuel Stream -->
+            <div class="card">
+                <h2>⛽ Refuel Stream</h2>
+                <div class="form-group">
+                    <label>Stream ID</label>
+                    <input type="number" id="refuelStreamId" placeholder="0" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Amount (microSTX)</label>
+                    <input type="number" id="refuelAmount" placeholder="500000" value="500000">
+                </div>
+                <button onclick="refuelStream()">Refuel Stream</button>
+                <div id="refuelStatus" class="status"></div>
+            </div>
+
+            <!-- Withdraw Tokens -->
+            <div class="card">
+                <h2>💰 Withdraw Tokens</h2>
+                <div class="form-group">
+                    <label>Stream ID</label>
+                    <input type="number" id="withdrawStreamId" placeholder="0" value="0">
+                </div>
+                <button onclick="withdrawTokens()">Withdraw</button>
+                <div id="withdrawStatus" class="status"></div>
+                <p class="info-text">💡 Recipients can withdraw accumulated tokens at any time</p>
+            </div>
+
+            <!-- Refund Excess -->
+            <div class="card">
+                <h2>🔙 Refund Excess Tokens</h2>
+                <div class="form-group">
+                    <label>Stream ID</label>
+                    <input type="number" id="refundStreamId" placeholder="0" value="0">
+                </div>
+                <button onclick="refundTokens()">Request Refund</button>
+                <div id="refundStatus" class="status"></div>
+                <p class="info-text">💡 Only available after stream ends</p>
+            </div>
+
+            <!-- Check Balance -->
+            <div class="card">
+                <h2>📊 Check Balance</h2>
+                <div class="form-group">
+                    <label>Stream ID</label>
+                    <input type="number" id="balanceStreamId" placeholder="0" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <input type="text" id="balanceAddress" placeholder="Your address">
+                </div>
+                <button onclick="checkBalance()">Check Balance</button>
+                <div id="balanceStatus" class="status"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CONTRACT_ADDRESS = 'ST3DJAD94M03E59W51PWD3VT0XH3S8VXZPXT59P5G';
+        const CONTRACT_NAME = 'stream';
+        let userAddress = null;
+
+        async function connectWallet() {
+            try {
+                const { userSession, showConnect, AppConfig } = stacksConnect;
+                
+                const appConfig = new AppConfig(['store_write', 'publish_data']);
+                const session = new userSession({ appConfig });
+                
+                showConnect({
+                    appDetails: {
+                        name: 'Token Streaming Protocol',
+                        icon: window.location.origin + '/icon.png',
+                    },
+                    redirectTo: '/',
+                    onFinish: () => {
+                        const userData = session.loadUserData();
+                        userAddress = userData.profile.stxAddress.testnet;
+                        document.getElementById('userAddress').textContent = userAddress;
+                        document.getElementById('walletInfo').style.display = 'block';
+                        document.getElementById('connectWallet').textContent = 'Connected ✓';
+                        document.getElementById('connectWallet').disabled = true;
+                        document.getElementById('balanceAddress').value = userAddress;
+                        showStatus('createStatus', 'Wallet connected successfully!', 'success');
+                    },
+                    onCancel: () => {
+                        showStatus('createStatus', 'Wallet connection cancelled', 'error');
+                    },
+                    userSession: session,
+                });
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                showStatus('createStatus', 'Error: Make sure Xverse or Leather wallet is installed', 'error');
+            }
+        }
+
+        function showStatus(elementId, message, type) {
+            const statusEl = document.getElementById(elementId);
+            statusEl.textContent = message;
+            statusEl.className = 'status ' + type;
+        }
+
+        async function createStream() {
+            const recipient = document.getElementById('recipient').value;
+            const initialBalance = document.getElementById('initialBalance').value;
+            const startBlock = document.getElementById('startBlock').value;
+            const stopBlock = document.getElementById('stopBlock').value;
+            const paymentPerBlock = document.getElementById('paymentPerBlock').value;
+
+            if (!recipient || !initialBalance || !startBlock || !stopBlock || !paymentPerBlock) {
+                showStatus('createStatus', 'Please fill in all fields', 'error');
+                return;
+            }
+
+            showStatus('createStatus', 'Creating stream... Please confirm in your wallet', 'info');
+
+            const functionArgs = [
+                stacksConnect.Cl.principal(recipient),
+                stacksConnect.Cl.uint(initialBalance),
+                stacksConnect.Cl.tuple({
+                    'start-block': stacksConnect.Cl.uint(startBlock),
+                    'stop-block': stacksConnect.Cl.uint(stopBlock)
+                }),
+                stacksConnect.Cl.uint(paymentPerBlock)
+            ];
+
+            try {
+                await stacksConnect.openContractCall({
+                    network: new stacksConnect.StacksTestnet(),
+                    contractAddress: CONTRACT_ADDRESS,
+                    contractName: CONTRACT_NAME,
+                    functionName: 'stream-to',
+                    functionArgs: functionArgs,
+                    onFinish: (data) => {
+                        showStatus('createStatus', '✓ Stream created! Transaction ID: ' + data.txId, 'success');
+                    },
+                });
+            } catch (error) {
+                showStatus('createStatus', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        async function refuelStream() {
+            const streamId = document.getElementById('refuelStreamId').value;
+            const amount = document.getElementById('refuelAmount').value;
+
+            showStatus('refuelStatus', 'Refueling stream... Please confirm in your wallet', 'info');
+
+            try {
+                await stacksConnect.openContractCall({
+                    network: new stacksConnect.StacksTestnet(),
+                    contractAddress: CONTRACT_ADDRESS,
+                    contractName: CONTRACT_NAME,
+                    functionName: 'refuel',
+                    functionArgs: [
+                        stacksConnect.Cl.uint(streamId),
+                        stacksConnect.Cl.uint(amount)
+                    ],
+                    onFinish: (data) => {
+                        showStatus('refuelStatus', '✓ Stream refueled! Transaction ID: ' + data.txId, 'success');
+                    },
+                });
+            } catch (error) {
+                showStatus('refuelStatus', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        async function withdrawTokens() {
+            const streamId = document.getElementById('withdrawStreamId').value;
+
+            showStatus('withdrawStatus', 'Withdrawing tokens... Please confirm in your wallet', 'info');
+
+            try {
+                await stacksConnect.openContractCall({
+                    network: new stacksConnect.StacksTestnet(),
+                    contractAddress: CONTRACT_ADDRESS,
+                    contractName: CONTRACT_NAME,
+                    functionName: 'withdraw',
+                    functionArgs: [stacksConnect.Cl.uint(streamId)],
+                    onFinish: (data) => {
+                        showStatus('withdrawStatus', '✓ Tokens withdrawn! Transaction ID: ' + data.txId, 'success');
+                    },
+                });
+            } catch (error) {
+                showStatus('withdrawStatus', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        async function refundTokens() {
+            const streamId = document.getElementById('refundStreamId').value;
+
+            showStatus('refundStatus', 'Requesting refund... Please confirm in your wallet', 'info');
+
+            try {
+                await stacksConnect.openContractCall({
+                    network: new stacksConnect.StacksTestnet(),
+                    contractAddress: CONTRACT_ADDRESS,
+                    contractName: CONTRACT_NAME,
+                    functionName: 'refund',
+                    functionArgs: [stacksConnect.Cl.uint(streamId)],
+                    onFinish: (data) => {
+                        showStatus('refundStatus', '✓ Refund processed! Transaction ID: ' + data.txId, 'success');
+                    },
+                });
+            } catch (error) {
+                showStatus('refundStatus', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        async function checkBalance() {
+            const streamId = document.getElementById('balanceStreamId').value;
+            const address = document.getElementById('balanceAddress').value;
+
+            if (!address) {
+                showStatus('balanceStatus', 'Please enter an address', 'error');
+                return;
+            }
+
+            showStatus('balanceStatus', 'Checking balance...', 'info');
+
+            try {
+                const response = await fetch(`https://api.testnet.hiro.so/v2/contracts/call-read/${CONTRACT_ADDRESS}/${CONTRACT_NAME}/balance-of`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        sender: address,
+                        arguments: [
+                            stacksConnect.Cl.serialize(stacksConnect.Cl.uint(streamId)),
+                            stacksConnect.Cl.serialize(stacksConnect.Cl.principal(address))
+                        ]
+                    })
+                });
+
+                const data = await response.json();
+                showStatus('balanceStatus', '✓ Balance: ' + data.result + ' microSTX', 'success');
+            } catch (error) {
+                showStatus('balanceStatus', 'Error: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

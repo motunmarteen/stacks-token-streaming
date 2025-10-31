@@ -15,6 +15,14 @@
 (define-constant ERR_INVALID_SIGNATURE (err u1))
 (define-constant ERR_STREAM_STILL_ACTIVE (err u2))
 (define-constant ERR_INVALID_STREAM_ID (err u3))
+(define-constant ERR_STREAM_NOT_PAUSED (err u4))
+(define-constant ERR_STREAM_ALREADY_PAUSED (err u5))
+(define-constant ERR_STREAM_CANCELLED (err u6))
+
+;; stream status constants
+(define-constant STATUS_ACTIVE (ok u0))
+(define-constant STATUS_PAUSED (ok u1))
+(define-constant STATUS_CANCELLED (ok u2))
 
 ;; data vars
 (define-data-var latest-stream-id uint u0)
@@ -29,7 +37,10 @@
     balance: uint,
     withdrawn-balance: uint,
     payment-per-block: uint,
-    timeframe: (tuple (start-block uint) (stop-block uint))
+    timeframe: (tuple (start-block uint) (stop-block uint)),
+    status: (response uint uint),
+    pause-block: uint,
+    total-paused-blocks: uint
   }
 )
 
@@ -48,7 +59,10 @@
       balance: initial-balance,
       withdrawn-balance: u0,
       payment-per-block: payment-per-block,
-      timeframe: timeframe
+      timeframe: timeframe,
+      status: STATUS_ACTIVE,
+      pause-block: u0,
+      total-paused-blocks: u0
     })
     (current-stream-id (var-get latest-stream-id))
   )
@@ -86,9 +100,11 @@
 )
   (let (
     (stream (unwrap! (map-get? streams stream-id) ERR_INVALID_STREAM_ID))
+    (current-status (unwrap! (get status stream) (err u999)))
     (balance (balance-of stream-id contract-caller))
   )
     (asserts! (is-eq contract-caller (get recipient stream)) ERR_UNAUTHORIZED)
+    (asserts! (not (is-eq current-status u2)) ERR_STREAM_CANCELLED)
     (map-set streams stream-id (merge stream {withdrawn-balance: (+ (get withdrawn-balance stream) balance)}))
     (try! (as-contract (stx-transfer? balance tx-sender (get recipient stream))))
     (ok balance)
@@ -138,6 +154,61 @@
   )
 )
 
+;; Pause a stream
+(define-public (pause-stream 
+  (stream-id uint)
+)
+  (let (
+    (stream (unwrap! (map-get? streams stream-id) ERR_INVALID_STREAM_ID))
+    (current-status (unwrap! (get status stream) (err u999)))
+  )
+    (asserts! (is-eq contract-caller (get sender stream)) ERR_UNAUTHORIZED)
+    (asserts! (is-eq current-status u0) ERR_STREAM_ALREADY_PAUSED)
+    (map-set streams stream-id (merge stream {
+      status: STATUS_PAUSED,
+      pause-block: stacks-block-height
+    }))
+    (ok true)
+  )
+)
+
+;; Resume a paused stream
+(define-public (resume-stream 
+  (stream-id uint)
+)
+  (let (
+    (stream (unwrap! (map-get? streams stream-id) ERR_INVALID_STREAM_ID))
+    (current-status (unwrap! (get status stream) (err u999)))
+    (paused-blocks (- stacks-block-height (get pause-block stream)))
+  )
+    (asserts! (is-eq contract-caller (get sender stream)) ERR_UNAUTHORIZED)
+    (asserts! (is-eq current-status u1) ERR_STREAM_NOT_PAUSED)
+    (map-set streams stream-id (merge stream {
+      status: STATUS_ACTIVE,
+      pause-block: u0,
+      total-paused-blocks: (+ (get total-paused-blocks stream) paused-blocks)
+    }))
+    (ok true)
+  )
+)
+
+;; Cancel a stream and refund unused tokens
+(define-public (cancel-stream 
+  (stream-id uint)
+)
+  (let (
+    (stream (unwrap! (map-get? streams stream-id) ERR_INVALID_STREAM_ID))
+    (remaining-balance (balance-of stream-id (get sender stream)))
+  )
+    (asserts! (is-eq contract-caller (get sender stream)) ERR_UNAUTHORIZED)
+    (map-set streams stream-id (merge stream {
+      status: STATUS_CANCELLED
+    }))
+    (try! (as-contract (stx-transfer? remaining-balance tx-sender (get sender stream))))
+    (ok remaining-balance)
+  )
+)
+
 ;; read only functions
 ;; Calculate the number of blocks a stream has been active
 (define-read-only (calculate-block-delta 
@@ -172,7 +243,24 @@
   (let (
     (stream (unwrap! (map-get? streams stream-id) u0))
     (block-delta (calculate-block-delta (get timeframe stream)))
-    (recipient-balance (* block-delta (get payment-per-block stream)))
+    (adjusted-delta 
+      (if (is-eq (unwrap! (get status stream) u999) u1)
+        ;; If paused, calculate delta up to pause-block only
+        (let (
+          (pause-block (get pause-block stream))
+          (start-block (get start-block (get timeframe stream)))
+        )
+          (if (<= pause-block start-block)
+            u0
+            (- pause-block start-block)
+          )
+        )
+        ;; If not paused, subtract total paused blocks
+        (- block-delta (get total-paused-blocks stream))
+      )
+    )
+    (effective-delta (if (< adjusted-delta u0) u0 adjusted-delta))
+    (recipient-balance (* effective-delta (get payment-per-block stream)))
   )
     (if (is-eq who (get recipient stream))
       (- recipient-balance (get withdrawn-balance stream))
@@ -214,6 +302,29 @@
     (principal-of? (unwrap! (secp256k1-recover? hash signature) false)) 
     (ok signer)
   )
+)
+
+;; Get stream status
+(define-read-only (get-stream-status 
+  (stream-id uint)
+)
+  (let (
+    (stream (unwrap! (map-get? streams stream-id) (err u999)))
+  )
+    (ok (get status stream))
+  )
+)
+
+;; Get latest stream ID
+(define-read-only (get-latest-stream-id)
+  (ok (var-get latest-stream-id))
+)
+
+;; Get full stream data
+(define-read-only (get-stream
+  (stream-id uint)
+)
+  (ok (unwrap! (map-get? streams stream-id) (err u999)))
 )
 
 ;; private functions

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Streaming Protocol - Simple Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .info-box {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .info-box h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .info-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .info-item strong {
+            color: #667eea;
+        }
+
+        .link {
+            color: #667eea;
+            text-decoration: none;
+            word-break: break-all;
+        }
+
+        .link:hover {
+            text-decoration: underline;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            margin: 5px;
+            transition: transform 0.2s;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+        }
+
+        .steps {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .steps h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .step {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            border-radius: 5px;
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .success {
+            background: #d4edda;
+            border: 1px solid #28a745;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌊 Token Streaming Protocol</h1>
+            <p>Simple Testing Interface</p>
+        </div>
+
+        <div class="info-box">
+            <h2>📋 Your Contract Information</h2>
+            <div class="info-item">
+                <strong>Contract Address:</strong><br>
+                <code>ST3DJAD94M03E59W51PWD3VT0XH3S8VXZPXT59P5G.stream</code>
+            </div>
+            <div class="info-item">
+                <strong>Your Xverse Address:</strong><br>
+                <code>STFMR5YYDP5P4X3FD9Y1D3SK87X8W5J191H71T7S</code>
+            </div>
+            <div class="info-item">
+                <strong>Network:</strong> Stacks Testnet
+            </div>
+            <div class="info-item">
+                <strong>Status:</strong> ✅ Live and Deployed
+            </div>
+            <div class="info-item">
+                <strong>View on Explorer:</strong><br>
+                <a href="https://explorer.stacks.co/?chain=testnet&contract=ST3DJAD94M03E59W51PWD3VT0XH3S8VXZPXT59P5G.stream" target="_blank" class="link">
+                    https://explorer.stacks.co/?chain=testnet&contract=ST3DJAD94M03E59W51PWD3VT0XH3S8VXZPXT59P5G.stream
+                </a>
+            </div>
+        </div>
+
+        <div class="success">
+            <strong>✅ Contract Successfully Deployed!</strong><br>
+            Your token streaming protocol is live on Stacks Testnet and ready to use.
+        </div>
+
+        <div class="steps">
+            <h2>🚀 How to Test Your Contract (Using Stacks Explorer)</h2>
+            
+            <div class="step">
+                <span class="step-number">1</span>
+                <strong>Open Stacks Explorer</strong><br>
+                Click the button below to open your contract in the Stacks Explorer:
+                <br><br>
+                <a href="https://explorer.stacks.co/?chain=testnet&contract=ST3DJAD94M03E59W51PWD3VT0XH3S8VXZPXT59P5G.stream" target="_blank" class="button">
+                    Open Contract in Explorer
+                </a>
+            </div>
+
+            <div class="step">
+                <span class="step-number">2</span>
+                <strong>Connect Your Xverse Wallet</strong><br>
+                - Click on the "Functions" tab in the explorer<br>
+                - Click "Connect Wallet" in the top right<br>
+                - Select Xverse and approve the connection
+            </div>
+
+            <div class="step">
+                <span class="step-number">3</span>
+                <strong>Test: Create a Stream</strong><br>
+                - Find the <code>stream-to</code> function<br>
+                - Fill in the parameters:<br>
+                &nbsp;&nbsp;• <strong>recipient:</strong> <code>STFMR5YYDP5P4X3FD9Y1D3SK87X8W5J191H71T7S</code> (your Xverse address)<br>
+                &nbsp;&nbsp;• <strong>initial-balance:</strong> <code>1000000</code> (1 STX)<br>
+                &nbsp;&nbsp;• <strong>start-block:</strong> <code>0</code><br>
+                &nbsp;&nbsp;• <strong>stop-block:</strong> <code>100</code><br>
+                &nbsp;&nbsp;• <strong>payment-per-block:</strong> <code>10000</code> (0.01 STX per block)<br>
+                - Click "Call Function"<br>
+                - Approve in Xverse wallet
+            </div>
+
+            <div class="step">
+                <span class="step-number">4</span>
+                <strong>Check Balance</strong><br>
+                - Find the <code>balance-of</code> function (Read-Only)<br>
+                - Enter:<br>
+                &nbsp;&nbsp;• <strong>stream-id:</strong> <code>0</code><br>
+                &nbsp;&nbsp;• <strong>who:</strong> Your address<br>
+                - Click "Call Function"<br>
+                - See your accumulated tokens!
+            </div>
+
+            <div class="step">
+                <span class="step-number">5</span>
+                <strong>Withdraw Tokens</strong><br>
+                - Find the <code>withdraw</code> function<br>
+                - Enter <code>stream-id: 0</code><br>
+                - Click "Call Function"<br>
+                - Approve in Xverse wallet<br>
+                - Tokens will be transferred to you!
+            </div>
+
+            <div class="step">
+                <span class="step-number">6</span>
+                <strong>Try Other Functions</strong><br>
+                - <code>refuel</code>: Add more tokens to your stream<br>
+                - <code>refund</code>: Get back excess tokens (after stream ends)<br>
+                - <code>update-details</code>: Modify stream parameters (requires signature)
+            </div>
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ Important Notes:</strong><br>
+            • Make sure you're on <strong>Testnet</strong> in your Xverse wallet<br>
+            • Transactions take ~10 minutes to confirm<br>
+            • You need testnet STX for gas fees<br>
+            • 1 STX = 1,000,000 microSTX
+        </div>
+
+        <div class="info-box">
+            <h2>📖 Available Functions</h2>
+            
+            <div class="info-item">
+                <strong>stream-to</strong> (Public)<br>
+                Create a new payment stream
+            </div>
+            
+            <div class="info-item">
+                <strong>refuel</strong> (Public)<br>
+                Add more tokens to an existing stream
+            </div>
+            
+            <div class="info-item">
+                <strong>withdraw</strong> (Public)<br>
+                Withdraw accumulated tokens from a stream
+            </div>
+            
+            <div class="info-item">
+                <strong>refund</strong> (Public)<br>
+                Reclaim excess tokens after stream ends
+            </div>
+            
+            <div class="info-item">
+                <strong>update-details</strong> (Public)<br>
+                Modify stream parameters with signature verification
+            </div>
+            
+            <div class="info-item">
+                <strong>balance-of</strong> (Read-Only)<br>
+                Check withdrawable balance for any address
+            </div>
+            
+            <div class="info-item">
+                <strong>calculate-block-delta</strong> (Read-Only)<br>
+                Calculate active block periods
+            </div>
+            
+            <div class="info-item">
+                <strong>hash-stream</strong> (Read-Only)<br>
+                Generate hash for signature verification
+            </div>
+            
+            <div class="info-item">
+                <strong>validate-signature</strong> (Read-Only)<br>
+                Verify ECDSA signatures
+            </div>
+        </div>
+
+        <div class="info-box" style="text-align: center;">
+            <h2>🎓 LearnWeb3 Stacks Developer Degree</h2>
+            <p>This project demonstrates completion of the course requirements:</p>
+            <p>✅ Smart Contract Development</p>
+            <p>✅ Comprehensive Testing</p>
+            <p>✅ Testnet Deployment</p>
+            <p>✅ Real-World DeFi Protocol</p>
+        </div>
+    </div>
+</body>
+</html>
