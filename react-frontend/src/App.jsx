@@ -82,7 +82,7 @@ function App() {
       
       // Get latest stream ID
       const latestIdResult = await callReadOnlyFunction({
-        network: testnetNetwork,
+        network: 'testnet',
         contractAddress: CONTRACT_ADDRESS,
         contractName: CONTRACT_NAME,
         functionName: 'get-latest-stream-id',
@@ -99,7 +99,7 @@ function App() {
         for (let i = 0; i < latestId; i++) {
           try {
             const streamResult = await callReadOnlyFunction({
-              network: testnetNetwork,
+              network: 'testnet',
               contractAddress: CONTRACT_ADDRESS,
               contractName: CONTRACT_NAME,
               functionName: 'get-stream',
