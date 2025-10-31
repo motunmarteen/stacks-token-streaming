@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { AppConfig, UserSession, showConnect } from '@stacks/connect'
+import { AppConfig, UserSession, showConnect, openContractCall } from '@stacks/connect'
 import { createNetwork } from '@stacks/network'
 import { 
   callReadOnlyFunction, 
@@ -7,8 +7,6 @@ import {
   uintCV, 
   principalCV,
   tupleCV,
-  makeContractCall,
-  broadcastTransaction,
   AnchorMode,
   PostConditionMode
 } from '@stacks/transactions'
@@ -192,31 +190,27 @@ function App() {
 
     try {
       setLoading(true)
-      const txOptions = {
+      
+      await openContractCall({
         contractAddress: CONTRACT_ADDRESS,
         contractName: CONTRACT_NAME,
         functionName,
         functionArgs,
-        senderKey: userData.appPrivateKey,
         network: testnetNetwork,
-        anchorMode: AnchorMode.Any,
-        postConditionMode: PostConditionMode.Allow,
+        onFinish: (data) => {
+          toast.success(`Transaction submitted! TX: ${data.txId}`)
+          setTimeout(() => loadStreams(), 2000)
+          setLoading(false)
+        },
+        onCancel: () => {
+          toast.error('Transaction cancelled')
+          setLoading(false)
+        },
         ...options,
-      }
-
-      const transaction = await makeContractCall(txOptions)
-      const broadcastResponse = await broadcastTransaction(transaction, testnetNetwork)
-      
-      if (broadcastResponse.error) {
-        throw new Error(broadcastResponse.error)
-      }
-
-      toast.success(`Transaction submitted! TX: ${broadcastResponse.txid}`)
-      setTimeout(() => loadStreams(), 2000)
+      })
     } catch (error) {
       console.error('Transaction error:', error)
       toast.error(`Transaction failed: ${error.message}`)
-    } finally {
       setLoading(false)
     }
   }
