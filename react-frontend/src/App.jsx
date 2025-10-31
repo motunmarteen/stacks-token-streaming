@@ -198,7 +198,7 @@ function App() {
         functionName,
         functionArgs,
         senderKey: userData.appPrivateKey,
-        network: 'testnet',
+        network: testnetNetwork,
         anchorMode: AnchorMode.Any,
         postConditionMode: PostConditionMode.Allow,
         ...options,
