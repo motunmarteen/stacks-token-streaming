@@ -157,7 +157,7 @@ function App() {
         // Sequential loading: try stream IDs starting from 0 until we hit consecutive failures
         console.log('Using sequential loading...')
         let consecutiveFailures = 0
-        const maxConsecutiveFailures = 5 // Stop after 5 consecutive failures
+        const maxConsecutiveFailures = 20 // Increased to find more streams (you have multiple transactions)
         
         for (let i = 0; consecutiveFailures < maxConsecutiveFailures; i++) {
           try {

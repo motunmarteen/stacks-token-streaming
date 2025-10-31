@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Check Transaction Status</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .transaction {
+            background: #2a2a2a;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #555;
+        }
+        .success { border-left-color: #4CAF50; }
+        .failed { border-left-color: #f44336; }
+        .pending { border-left-color: #ff9800; }
+        .tx-link {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        .tx-link:hover { text-decoration: underline; }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #45a049; }
+        .info { color: #ff9800; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Check Your Stream Transactions</h1>
+    <p class="info">Checking status of your recent transactions...</p>
+    
+    <div id="results"></div>
+    
+    <script>
+        const transactions = [
+            { id: 'fb756a2a8023a7118e8fc225bef6123337a9c854bffd4f6fc180b659ea05deff', fee: '319568 µSTX', age: '15 min' },
+            { id: 'd3a368a', fee: '189137 µSTX', age: '18 min' },
+            { id: '37df4bc5e00a3d665782f4206630973cb6a077d09843a1ddd1e8e5409e518b51', fee: '3000 µSTX', age: '38 min' },
+            { id: '92bcfd4', fee: '3400 µSTX', age: '41 min' },
+            { id: '5b06916', fee: '3000 µSTX', age: '44 min' },
+            { id: 'eb1d21691359e591862a51a6bed241820874412e9760a9d047c08bd9d02db58c', fee: '3000 µSTX', age: '1 hour' },
+            { id: '667ebb5', fee: '7555 µSTX', age: '2 hours' }
+        ];
+        
+        async function checkTransaction(txId) {
+            try {
+                const response = await fetch(`https://api.testnet.hiro.so/extended/v1/tx/${txId}`);
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                return { error: error.message };
+            }
+        }
+        
+        async function checkAll() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>Loading...</p>';
+            
+            let html = '';
+            
+            for (const tx of transactions) {
+                const fullTxId = tx.id.length < 64 ? tx.id : tx.id;
+                const data = await checkTransaction(fullTxId);
+                
+                let status = 'unknown';
+                let statusClass = '';
+                let message = '';
+                
+                if (data.error) {
+                    status = 'error';
+                    statusClass = 'failed';
+                    message = `Error: ${data.error}`;
+                } else if (data.tx_status === 'success') {
+                    status = 'success';
+                    statusClass = 'success';
+                    message = '✅ Transaction succeeded! Stream should be created.';
+                } else if (data.tx_status === 'pending') {
+                    status = 'pending';
+                    statusClass = 'pending';
+                    message = '⏳ Transaction still pending...';
+                } else if (data.tx_status === 'abort_by_response' || data.tx_status === 'abort_by_post_condition') {
+                    status = 'failed';
+                    statusClass = 'failed';
+                    message = `❌ Transaction failed: ${data.tx_status.replace(/_/g, ' ')}`;
+                } else {
+                    status = data.tx_status || 'unknown';
+                    statusClass = 'pending';
+                    message = `Status: ${data.tx_status || 'Unknown'}`;
+                }
+                
+                html += `
+                    <div class="transaction ${statusClass}">
+                        <strong>TX: ${tx.id.substring(0, 8)}...</strong><br>
+                        Status: ${message}<br>
+                        Fee: ${tx.fee} | Age: ${tx.age}<br>
+                        <a href="https://explorer.stacks.co/txid/${fullTxId}?chain=testnet" target="_blank" class="tx-link">View on Explorer →</a>
+                    </div>
+                `;
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        checkAll();
+    </script>
+</body>
+</html>
+
