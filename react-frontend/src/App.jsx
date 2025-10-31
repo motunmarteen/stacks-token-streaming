@@ -17,7 +17,7 @@ import StreamList from './components/StreamList'
 import CreateStreamForm from './components/CreateStreamForm'
 import Header from './components/Header'
 
-const CONTRACT_ADDRESS = 'ST3DJAD94M03E59W51PWD3VT0XH3S8VXZPXT59P5G'
+const CONTRACT_ADDRESS = 'STFMR5YYDP5P4X3FD9Y1D3SK87X8W5J191H71T7S' // Updated: New deployment with read functions
 const CONTRACT_NAME = 'stream'
 const testnetNetwork = createNetwork('testnet')
 
