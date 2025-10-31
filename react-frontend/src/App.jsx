@@ -10,7 +10,8 @@ import {
   AnchorMode,
   PostConditionMode,
   createSTXPostCondition,
-  FungibleConditionCode
+  FungibleConditionCode,
+  cvToValue
 } from '@stacks/transactions'
 import toast, { Toaster } from 'react-hot-toast'
 import StreamList from './components/StreamList'
@@ -145,13 +146,41 @@ function App() {
               senderAddress: userData.profile.stxAddress.testnet,
             })
 
-            console.log(`Stream ${i} result:`, streamResult)
-            if (streamResult && streamResult.value) {
+            console.log(`Stream ${i} result:`, JSON.stringify(streamResult, null, 2))
+            
+            // Handle the response - get-stream returns (ok tuple)
+            let streamData = null
+            try {
+              const convertedValue = cvToValue(streamResult)
+              if (convertedValue?.okay) {
+                streamData = convertedValue.okay
+              } else if (convertedValue?.value) {
+                streamData = convertedValue.value
+              } else if (convertedValue) {
+                streamData = convertedValue
+              }
+            } catch (e) {
+              if (streamResult?.okay) {
+                streamData = streamResult.okay
+              } else if (streamResult?.value) {
+                streamData = streamResult.value
+              }
+            }
+            
+            // Validate we have actual stream data
+            const hasValidData = streamData && (
+              streamData.sender || streamData.recipient ||
+              streamData['sender'] || streamData['recipient']
+            )
+            
+            if (hasValidData) {
               streamList.push({
                 id: i,
-                ...streamResult.value,
+                ...streamData,
               })
-              console.log(`Added stream ${i} to list`)
+              console.log(`✅ Added stream ${i} to list:`, streamData)
+            } else {
+              console.log(`⚠️ Stream ${i} has no valid data, skipping`)
             }
           } catch (e) {
             // Stream doesn't exist - skip it
@@ -176,33 +205,73 @@ function App() {
               senderAddress: userData.profile.stxAddress.testnet,
             })
 
-            console.log(`Stream ${i} result:`, streamResult)
-            console.log(`Stream ${i} result type:`, typeof streamResult)
-            console.log(`Stream ${i} result.value:`, streamResult?.value)
-            console.log(`Stream ${i} result.okay:`, streamResult?.okay)
+            console.log(`Stream ${i} result:`, JSON.stringify(streamResult, null, 2))
             
-            // Handle different response formats
+            // Convert Clarity value to JavaScript value
             let streamData = null
-            if (streamResult?.okay) {
-              // Clarity ok response
-              streamData = streamResult.okay
-            } else if (streamResult?.value) {
-              // Direct value
-              streamData = streamResult.value
-            } else if (streamResult) {
-              // Try streamResult itself
-              streamData = streamResult
+            try {
+              // Try to convert the response using cvToValue
+              const convertedValue = cvToValue(streamResult)
+              console.log(`Stream ${i} converted value:`, convertedValue)
+              
+              // Handle different response formats
+              if (convertedValue?.okay) {
+                streamData = convertedValue.okay
+              } else if (convertedValue?.value) {
+                streamData = convertedValue.value
+              } else if (convertedValue && typeof convertedValue === 'object') {
+                streamData = convertedValue
+              }
+            } catch (e) {
+              console.log(`Could not convert stream ${i} with cvToValue:`, e.message)
+              // Fallback to direct extraction
+              if (streamResult?.okay) {
+                streamData = streamResult.okay
+              } else if (streamResult?.value?.okay) {
+                streamData = streamResult.value.okay
+              } else if (streamResult?.value) {
+                streamData = streamResult.value
+              }
             }
             
-            if (streamData) {
+            // Validate that we have actual stream data with sender or recipient
+            // Try multiple ways to extract the data
+            let finalData = null
+            
+            if (streamData?.data) {
+              finalData = streamData.data
+            } else if (streamData && typeof streamData === 'object') {
+              finalData = streamData
+            }
+            
+            // Check if we have valid stream data (must have sender or recipient)
+            const senderValue = finalData?.sender || finalData?.['sender']
+            const recipientValue = finalData?.recipient || finalData?.['recipient']
+            
+            // Extract actual values from Clarity types
+            const hasSender = senderValue && (
+              typeof senderValue === 'string' || 
+              (typeof senderValue === 'object' && (senderValue.address || senderValue.value))
+            )
+            const hasRecipient = recipientValue && (
+              typeof recipientValue === 'string' || 
+              (typeof recipientValue === 'object' && (recipientValue.address || recipientValue.value))
+            )
+            
+            if (finalData && (hasSender || hasRecipient)) {
               streamList.push({
                 id: i,
-                ...streamData,
+                ...finalData,
               })
-              console.log(`✅ Added stream ${i} to list:`, streamData)
+              console.log(`✅ Added stream ${i} to list:`, finalData)
               consecutiveFailures = 0 // Reset counter on success
             } else {
-              console.log(`⚠️ Stream ${i} returned empty/invalid value. Full result:`, streamResult)
+              console.log(`⚠️ Stream ${i} has no valid sender/recipient. Skipping.`, {
+                streamData,
+                finalData,
+                senderValue,
+                recipientValue
+              })
               consecutiveFailures++
             }
           } catch (e) {

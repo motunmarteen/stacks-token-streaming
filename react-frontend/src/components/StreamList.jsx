@@ -80,7 +80,24 @@ const StreamList = ({ streams, userAddress, onPause, onResume, onCancel, onWithd
 
   const getStreamValue = (stream, field) => {
     const value = stream[field]
-    return value?.value !== undefined ? value.value : value
+    // Handle Clarity tuple values
+    if (value === undefined || value === null) {
+      return undefined
+    }
+    // If it's an object with a value property, extract it
+    if (typeof value === 'object' && 'value' in value) {
+      return value.value
+    }
+    // If it's a principal object, extract the address
+    if (typeof value === 'object' && 'address' in value) {
+      return value.address
+    }
+    // If it's a tuple with data, extract from data
+    if (typeof value === 'object' && 'data' in value) {
+      return value.data
+    }
+    // Otherwise return as-is
+    return value
   }
 
   if (streams.length === 0) {
@@ -122,11 +139,11 @@ const StreamList = ({ streams, userAddress, onPause, onResume, onCancel, onWithd
                     <h3 className="text-xl font-bold text-white">Stream #{stream.id}</h3>
                     {getStatusBadge(status)}
                   </div>
-                  <div className="text-sm text-gray-300 space-y-1">
-                    <p><span className="font-semibold">Sender:</span> {String(getStreamValue(stream, 'sender')).substring(0, 20)}...</p>
-                    <p><span className="font-semibold">Recipient:</span> {String(getStreamValue(stream, 'recipient')).substring(0, 20)}...</p>
-                    <p><span className="font-semibold">Balance:</span> {formatMicroSTX(getStreamValue(stream, 'balance'))} STX</p>
-                    <p><span className="font-semibold">Payment/Block:</span> {formatMicroSTX(getStreamValue(stream, 'payment-per-block'))} STX</p>
+                      <div className="text-sm text-gray-300 space-y-1">
+                        <p><span className="font-semibold">Sender:</span> {getStreamValue(stream, 'sender') ? String(getStreamValue(stream, 'sender')).substring(0, 20) + '...' : 'N/A'}</p>
+                        <p><span className="font-semibold">Recipient:</span> {getStreamValue(stream, 'recipient') ? String(getStreamValue(stream, 'recipient')).substring(0, 20) + '...' : 'N/A'}</p>
+                        <p><span className="font-semibold">Balance:</span> {formatMicroSTX(getStreamValue(stream, 'balance'))} STX</p>
+                        <p><span className="font-semibold">Payment/Block:</span> {formatMicroSTX(getStreamValue(stream, 'payment-per-block'))} STX</p>
                     {balance > 0 && (
                       <p className="text-green-300 font-semibold">
                         Withdrawable: {formatMicroSTX(balance)} STX
