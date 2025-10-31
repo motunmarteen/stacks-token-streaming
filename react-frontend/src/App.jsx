@@ -186,8 +186,9 @@ function App() {
       const errorMessage = error?.message || error?.toString() || 'Unknown error'
       
       // More helpful error messages
-      if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
-        toast.error('Network error. Please check your internet connection.')
+      if (errorMessage.includes('ERR_NAME_NOT_RESOLVED') || errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        toast.error('Cannot connect to Stacks API. Please check your internet connection and try again.')
+        console.error('Network connectivity issue. Check if you can access: https://api.testnet.hiro.so')
       } else if (errorMessage.includes('contract')) {
         toast.error('Contract not found. Please verify the contract address.')
       } else {
@@ -238,7 +239,13 @@ function App() {
       })
     } catch (error) {
       console.error('Transaction error:', error)
-      toast.error(`Transaction failed: ${error.message}`)
+      const errorMessage = error?.message || error?.toString() || 'Unknown error'
+      
+      if (errorMessage.includes('ERR_NAME_NOT_RESOLVED') || errorMessage.includes('network')) {
+        toast.error('Network error: Cannot connect to Stacks API. Please check your internet connection.')
+      } else {
+        toast.error(`Transaction failed: ${errorMessage}`)
+      }
       setLoading(false)
     }
   }
