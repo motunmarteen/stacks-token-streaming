@@ -172,19 +172,41 @@ function App() {
             })
 
             console.log(`Stream ${i} result:`, streamResult)
-            if (streamResult && streamResult.value) {
+            console.log(`Stream ${i} result type:`, typeof streamResult)
+            console.log(`Stream ${i} result.value:`, streamResult?.value)
+            console.log(`Stream ${i} result.okay:`, streamResult?.okay)
+            
+            // Handle different response formats
+            let streamData = null
+            if (streamResult?.okay) {
+              // Clarity ok response
+              streamData = streamResult.okay
+            } else if (streamResult?.value) {
+              // Direct value
+              streamData = streamResult.value
+            } else if (streamResult) {
+              // Try streamResult itself
+              streamData = streamResult
+            }
+            
+            if (streamData) {
               streamList.push({
                 id: i,
-                ...streamResult.value,
+                ...streamData,
               })
-              console.log(`Added stream ${i} to list`)
+              console.log(`✅ Added stream ${i} to list:`, streamData)
               consecutiveFailures = 0 // Reset counter on success
             } else {
-              console.log(`Stream ${i} returned empty value`)
+              console.log(`⚠️ Stream ${i} returned empty/invalid value. Full result:`, streamResult)
               consecutiveFailures++
             }
           } catch (e) {
-            console.log(`Stream ${i} error:`, e.message)
+            console.error(`❌ Stream ${i} error:`, e)
+            console.error(`Error details:`, {
+              message: e.message,
+              stack: e.stack,
+              name: e.name
+            })
             consecutiveFailures++
             if (consecutiveFailures >= maxConsecutiveFailures) {
               console.log(`Stopping after ${consecutiveFailures} consecutive failures`)
