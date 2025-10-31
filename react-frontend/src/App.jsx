@@ -272,15 +272,8 @@ function App() {
   const createStream = async (formData) => {
     const { recipient, initialBalance, startBlock, stopBlock, paymentPerBlock } = formData
     
-    // Create post-condition to verify STX was sent from user
-    const postConditions = [
-      createSTXPostCondition(
-        userData.profile.stxAddress.testnet,
-        FungibleConditionCode.Equal,
-        BigInt(initialBalance)
-      )
-    ]
-    
+    // Note: openContractCall/wallet handles post-conditions automatically
+    // The wallet UI will show the STX transfer to the user for approval
     await handleContractCall('stream-to', [
       principalCV(recipient),
       uintCV(initialBalance),
@@ -289,9 +282,7 @@ function App() {
         'stop-block': uintCV(stopBlock),
       }),
       uintCV(paymentPerBlock),
-    ], {
-      postConditions
-    })
+    ])
   }
 
   useEffect(() => {
