@@ -122,6 +122,11 @@ function App() {
       } catch (e) {
         // Function doesn't exist in deployed contract - fallback to sequential loading
         console.log('get-latest-stream-id not available, using sequential loading:', e.message)
+        if (e.message && e.message.includes('UndefinedFunction')) {
+          toast.error('⚠️ Contract missing read functions. Streams were created but cannot be displayed. The contract needs to be redeployed with updated read-only functions.', {
+            duration: 10000
+          })
+        }
         latestId = null // null means we'll try sequential loading
       }
 
@@ -207,6 +212,20 @@ function App() {
               stack: e.stack,
               name: e.name
             })
+            
+            // If it's an undefined function error, stop trying - contract doesn't have the function
+            if (e.message && e.message.includes('UndefinedFunction')) {
+              console.error('❌ Contract does not have get-stream function. The deployed contract is missing read-only functions.')
+              if (i === 0) {
+                // Only show this message once
+                toast.error('⚠️ Contract missing "get-stream" function. Your streams exist but cannot be displayed. Please redeploy the contract with updated read-only functions.', {
+                  duration: 10000
+                })
+              }
+              // Stop searching - contract doesn't have this function
+              break
+            }
+            
             consecutiveFailures++
             if (consecutiveFailures >= maxConsecutiveFailures) {
               console.log(`Stopping after ${consecutiveFailures} consecutive failures`)
@@ -224,13 +243,16 @@ function App() {
         console.log('1. Transaction has not confirmed yet (wait 1-2 minutes)')
         console.log('2. Transaction failed (check explorer)')
         console.log('3. Streams are associated with a different address')
-        console.log('4. Contract read functions are not available')
+        console.log('4. Contract read functions are not available (get-stream function missing)')
         
-        // Show helpful message to user (using toast instead of toast.info)
-        toast('No streams found. If you just created one, wait 1-2 minutes and click Refresh.', {
-          duration: 5000,
-          icon: 'ℹ️'
-        })
+        // Don't show duplicate error messages - the error handler above already shows it
+        // Only show info message if we didn't hit the undefined function error
+        if (!streamList.length) {
+          toast('No streams found. Your streams exist on-chain but the contract is missing read functions to display them. Check the explorer to verify your streams.', {
+            duration: 8000,
+            icon: 'ℹ️'
+          })
+        }
       } else {
         toast.success(`✅ Loaded ${streamList.length} stream(s)!`, {
           duration: 3000
