@@ -279,6 +279,7 @@ function App() {
         functionArgs,
         network: 'testnet',
         userSession,
+        postConditionMode: PostConditionMode.Allow, // Allow transaction even if post-conditions don't match exactly
         postConditions: options.postConditions || [],
         onFinish: async (data) => {
           console.log('Transaction finished:', data)
