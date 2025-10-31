@@ -244,8 +244,18 @@
     (stream (unwrap! (map-get? streams stream-id) u0))
     (block-delta (calculate-block-delta (get timeframe stream)))
     (adjusted-delta 
-      (if (is-eq (get status stream) STATUS_PAUSED)
-        (- block-delta (- stacks-block-height (get pause-block stream)))
+      (if (is-eq (unwrap! (get status stream) u999) u1)
+        ;; If paused, calculate delta up to pause-block only
+        (let (
+          (pause-block (get pause-block stream))
+          (start-block (get start-block (get timeframe stream)))
+        )
+          (if (<= pause-block start-block)
+            u0
+            (- pause-block start-block)
+          )
+        )
+        ;; If not paused, subtract total paused blocks
         (- block-delta (get total-paused-blocks stream))
       )
     )

@@ -74,6 +74,9 @@ describe("Token Streaming Contract Tests", () => {
           "start-block": Cl.uint(0),
           "stop-block": Cl.uint(5),
         }),
+        status: Cl.ok(Cl.uint(0)),
+        "pause-block": Cl.uint(0),
+        "total-paused-blocks": Cl.uint(0),
       })
     );
   });
@@ -258,6 +261,9 @@ describe("Token Streaming Contract Tests", () => {
           "start-block": Cl.uint(0),
           "stop-block": Cl.uint(6),
         }),
+        status: Cl.ok(Cl.uint(0)),
+        "pause-block": Cl.uint(0),
+        "total-paused-blocks": Cl.uint(0),
       })
     );
   });
@@ -280,8 +286,10 @@ describe("Token Streaming Contract Tests", () => {
         sender
       );
       
-      const status = cvToValue(streamStatus.result);
-      expect(status).toBe(1); // STATUS_PAUSED = 1
+      const statusResult = cvToValue(streamStatus.result);
+      // get-stream-status returns (ok (response uint uint)), so we need to unwrap twice
+      const status = statusResult.value?.value !== undefined ? statusResult.value.value : (statusResult.value !== undefined ? statusResult.value : statusResult);
+      expect(Number(status)).toBe(1); // STATUS_PAUSED = 1
     });
 
     it("should prevent pause from non-sender", () => {
@@ -317,20 +325,28 @@ describe("Token Streaming Contract Tests", () => {
         sender
       );
       
-      const status = cvToValue(streamStatus.result);
-      expect(status).toBe(0); // STATUS_ACTIVE = 0
+      const statusResult = cvToValue(streamStatus.result);
+      // get-stream-status returns (ok (response uint uint)), so we need to unwrap twice
+      const status = statusResult.value?.value !== undefined ? statusResult.value.value : (statusResult.value !== undefined ? statusResult.value : statusResult);
+      expect(Number(status)).toBe(0); // STATUS_ACTIVE = 0
     });
 
     it("should not accumulate tokens while paused", () => {
-      const balanceBeforePause = simnet.callReadOnlyFn(
+      // Pause the stream - this sets pause-block to current block height
+      simnet.callPublicFn("stream", "pause-stream", [Cl.uint(0)], sender);
+      
+      // Get balance immediately after pausing (should be same or slightly more due to pause-block)
+      const balanceAfterPause = simnet.callReadOnlyFn(
         "stream",
         "balance-of",
         [Cl.uint(0), Cl.principal(recipient)],
         recipient
       );
       
-      simnet.callPublicFn("stream", "pause-stream", [Cl.uint(0)], sender);
+      const balanceAfterPauseValue = cvToValue(balanceAfterPause.result);
+      const balanceAfterPauseNum = Number(balanceAfterPauseValue.value || balanceAfterPauseValue);
       
+      // Mine blocks while paused - balance should not increase
       simnet.mineEmptyBlock();
       simnet.mineEmptyBlock();
       simnet.mineEmptyBlock();
@@ -342,10 +358,12 @@ describe("Token Streaming Contract Tests", () => {
         recipient
       );
       
-      const balanceBefore = cvToValue(balanceBeforePause.result);
       const balanceAfter = cvToValue(balanceWhilePaused.result);
+      const balanceAfterNum = Number(balanceAfter.value || balanceAfter);
       
-      expect(balanceAfter).toBe(balanceBefore);
+      // Balance should remain the same (or at most equal to balance after pause)
+      // The pause should freeze accumulation at the pause-block
+      expect(balanceAfterNum).toBe(balanceAfterPauseNum);
     });
 
     it("should resume token accumulation after resume", () => {
@@ -375,7 +393,7 @@ describe("Token Streaming Contract Tests", () => {
         sender
       );
       
-      expect(cancelResult.result).toBeOk();
+      expect(cancelResult.result).toBeOk(Cl.uint(1));
       
       const streamStatus = simnet.callReadOnlyFn(
         "stream",
@@ -384,8 +402,10 @@ describe("Token Streaming Contract Tests", () => {
         sender
       );
       
-      const status = cvToValue(streamStatus.result);
-      expect(status).toBe(2); // STATUS_CANCELLED = 2
+      const statusResult = cvToValue(streamStatus.result);
+      // get-stream-status returns (ok (response uint uint)), so we need to unwrap twice
+      const status = statusResult.value?.value !== undefined ? statusResult.value.value : (statusResult.value !== undefined ? statusResult.value : statusResult);
+      expect(Number(status)).toBe(2); // STATUS_CANCELLED = 2
       
       expect(cancelResult.events[0].event).toBe("stx_transfer_event");
     });
