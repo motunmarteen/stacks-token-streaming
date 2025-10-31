@@ -2,6 +2,17 @@
 
 A decentralized token streaming protocol built on Stacks blockchain using Clarity smart contracts. This project was completed as part of the **LearnWeb3 Stacks Developer Degree** course.
 
+## 🚀 Level 2 Upgrade Available!
+
+This repository now includes a **Level 2 upgrade** with pause/resume functionality and a modern React frontend! See the `pause-resume-feature` branch for the enhanced version.
+
+**Level 2 Features:**
+- ✅ Pause and Resume streams
+- ✅ Cancel streams with automatic refunds
+- ✅ Modern React + TailwindCSS frontend
+- ✅ Enhanced testing suite
+- ✅ Professional dashboard UI
+
 ## 🎯 Project Overview
 
 This project implements a token streaming protocol that allows continuous payments between two parties over time. The sender creates a stream with specific parameters, and the recipient can withdraw accumulated tokens at any point during the stream's active period.
@@ -106,6 +117,25 @@ This project fulfills all requirements from the **LearnWeb3 Stacks Developer Deg
 - Successfully deployed to Stacks Testnet
 - Verified contract functionality on live network
 
+## 🌐 Frontend Interface
+
+A simple web interface is included to interact with the deployed contract:
+
+### Quick Start:
+1. Navigate to the `frontend/` directory
+2. Open `index.html` in your web browser
+3. Connect your Leather Wallet (Testnet)
+4. Start creating and managing streams!
+
+### Features:
+- ✅ Create payment streams
+- ✅ Refuel existing streams
+- ✅ Withdraw accumulated tokens
+- ✅ Request refunds after stream ends
+- ✅ Check balances for any address
+
+See `frontend/README.md` for detailed instructions.
+
 ## 📁 Project Structure
 
 ```
@@ -114,6 +144,9 @@ stacks-token-streaming/
 │   └── stream.clar          # Main smart contract
 ├── tests/
 │   └── stream.test.ts       # Comprehensive test suite
+├── frontend/
+│   ├── index.html          # Web interface
+│   └── README.md           # Frontend documentation
 ├── settings/
 │   ├── Devnet.toml         # Development configuration
 │   └── Testnet.toml        # Testnet configuration
