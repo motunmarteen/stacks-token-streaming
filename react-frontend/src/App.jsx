@@ -68,6 +68,8 @@ function App() {
     
     try {
       setLoading(true)
+      
+      // Get latest stream ID
       const latestIdResult = await callReadOnlyFunction({
         network: testnetNetwork,
         contractAddress: CONTRACT_ADDRESS,
@@ -77,35 +79,60 @@ function App() {
         senderAddress: userData.profile.stxAddress.testnet,
       })
 
-      const latestId = latestIdResult?.value || 0
-      const streamList = []
+      // Handle response - check if it's an error
+      if (latestIdResult && latestIdResult.value !== undefined) {
+        const latestId = Number(latestIdResult.value) || 0
+        const streamList = []
 
-      for (let i = 0; i < latestId; i++) {
-        try {
-          const streamResult = await callReadOnlyFunction({
-            network: testnetNetwork,
-            contractAddress: CONTRACT_ADDRESS,
-            contractName: CONTRACT_NAME,
-            functionName: 'get-stream',
-            functionArgs: [uintCV(i)],
-            senderAddress: userData.profile.stxAddress.testnet,
-          })
-
-          if (streamResult && streamResult.value) {
-            streamList.push({
-              id: i,
-              ...streamResult.value,
+        // Try to load streams up to the latest ID
+        for (let i = 0; i < latestId; i++) {
+          try {
+            const streamResult = await callReadOnlyFunction({
+              network: testnetNetwork,
+              contractAddress: CONTRACT_ADDRESS,
+              contractName: CONTRACT_NAME,
+              functionName: 'get-stream',
+              functionArgs: [uintCV(i)],
+              senderAddress: userData.profile.stxAddress.testnet,
             })
-          }
-        } catch (e) {
-          console.log(`Stream ${i} not found or error:`, e)
-        }
-      }
 
-      setStreams(streamList)
+            // Check if result exists and has value
+            if (streamResult && streamResult.value) {
+              streamList.push({
+                id: i,
+                ...streamResult.value,
+              })
+            }
+          } catch (e) {
+            // Stream doesn't exist or error - skip it
+            console.log(`Stream ${i} not found or error:`, e.message || e)
+          }
+        }
+
+        setStreams(streamList)
+        if (streamList.length === 0 && latestId === 0) {
+          // No streams yet - this is normal
+          console.log('No streams found yet')
+        }
+      } else {
+        // Handle error response
+        console.error('Error getting latest stream ID:', latestIdResult)
+        toast.error('Unable to fetch stream count. Please check your connection.')
+        setStreams([])
+      }
     } catch (error) {
       console.error('Error loading streams:', error)
-      toast.error('Failed to load streams. Note: Full stream loading requires contract enhancements.')
+      const errorMessage = error?.message || error?.toString() || 'Unknown error'
+      
+      // More helpful error messages
+      if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        toast.error('Network error. Please check your internet connection.')
+      } else if (errorMessage.includes('contract')) {
+        toast.error('Contract not found. Please verify the contract address.')
+      } else {
+        toast.error(`Failed to load streams: ${errorMessage}`)
+      }
+      
       setStreams([])
     } finally {
       setLoading(false)
