@@ -21,7 +21,7 @@ const CONTRACT_ADDRESS = 'ST3DJAD94M03E59W51PWD3VT0XH3S8VXZPXT59P5G'
 const CONTRACT_NAME = 'stream'
 const testnetNetwork = createNetwork('testnet')
 
-const appConfig = new AppConfig(['store_write', 'publish_data'])
+const appConfig = new AppConfig(['store_write', 'publish_data'], 'testnet')
 const userSession = new UserSession({ appConfig })
 
 function App() {
@@ -42,6 +42,7 @@ function App() {
         icon: window.location.origin + '/icon.png',
       },
       redirectTo: '/',
+      network: testnetNetwork,
       onFinish: () => {
         const data = userSession.loadUserData()
         setUserData(data)
