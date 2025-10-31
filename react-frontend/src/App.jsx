@@ -94,12 +94,15 @@ function App() {
 
   const loadStreams = async () => {
     if (!userData) return
-    
+
     try {
       setLoading(true)
       const streamList = []
       let latestId = 0
-      
+
+      console.log('Loading streams for address:', userData.profile.stxAddress.testnet)
+      console.log('Contract:', `${CONTRACT_ADDRESS}.${CONTRACT_NAME}`)
+
       // Try to get latest stream ID first (if function exists)
       try {
         const latestIdResult = await callReadOnlyFunction({
@@ -111,8 +114,10 @@ function App() {
           senderAddress: userData.profile.stxAddress.testnet,
         })
 
+        console.log('Latest stream ID result:', latestIdResult)
         if (latestIdResult && latestIdResult.value !== undefined) {
           latestId = Number(latestIdResult.value) || 0
+          console.log('Latest stream ID:', latestId)
         }
       } catch (e) {
         // Function doesn't exist in deployed contract - fallback to sequential loading
@@ -123,6 +128,7 @@ function App() {
       // If we have a latest ID, use it. Otherwise, try sequential loading
       if (latestId !== null && latestId > 0) {
         // Load streams up to the latest ID
+        console.log(`Loading ${latestId} streams...`)
         for (let i = 0; i < latestId; i++) {
           try {
             const streamResult = await callReadOnlyFunction({
@@ -134,24 +140,28 @@ function App() {
               senderAddress: userData.profile.stxAddress.testnet,
             })
 
+            console.log(`Stream ${i} result:`, streamResult)
             if (streamResult && streamResult.value) {
               streamList.push({
                 id: i,
                 ...streamResult.value,
               })
+              console.log(`Added stream ${i} to list`)
             }
           } catch (e) {
             // Stream doesn't exist - skip it
-            console.log(`Stream ${i} not found`)
+            console.log(`Stream ${i} not found:`, e.message)
           }
         }
       } else {
         // Sequential loading: try stream IDs starting from 0 until we hit consecutive failures
+        console.log('Using sequential loading...')
         let consecutiveFailures = 0
         const maxConsecutiveFailures = 5 // Stop after 5 consecutive failures
         
         for (let i = 0; consecutiveFailures < maxConsecutiveFailures; i++) {
           try {
+            console.log(`Trying to load stream ${i}...`)
             const streamResult = await callReadOnlyFunction({
               network: 'testnet',
               contractAddress: CONTRACT_ADDRESS,
@@ -161,27 +171,36 @@ function App() {
               senderAddress: userData.profile.stxAddress.testnet,
             })
 
+            console.log(`Stream ${i} result:`, streamResult)
             if (streamResult && streamResult.value) {
               streamList.push({
                 id: i,
                 ...streamResult.value,
               })
+              console.log(`Added stream ${i} to list`)
               consecutiveFailures = 0 // Reset counter on success
             } else {
+              console.log(`Stream ${i} returned empty value`)
               consecutiveFailures++
             }
           } catch (e) {
+            console.log(`Stream ${i} error:`, e.message)
             consecutiveFailures++
             if (consecutiveFailures >= maxConsecutiveFailures) {
+              console.log(`Stopping after ${consecutiveFailures} consecutive failures`)
               break // Stop searching
             }
           }
         }
       }
 
+      console.log(`Total streams loaded: ${streamList.length}`, streamList)
       setStreams(streamList)
       if (streamList.length === 0) {
-        console.log('No streams found yet')
+        console.log('No streams found yet - this might mean:')
+        console.log('1. Transaction has not confirmed yet (wait 1-2 minutes)')
+        console.log('2. Transaction failed (check explorer)')
+        console.log('3. Streams are associated with a different address')
       }
     } catch (error) {
       console.error('Error loading streams:', error)
@@ -200,6 +219,39 @@ function App() {
       setStreams([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const checkTransactionStatus = async (txId) => {
+    try {
+      // Wait a bit for transaction to be included in a block
+      await new Promise(resolve => setTimeout(resolve, 10000)) // Wait 10 seconds
+      
+      const response = await fetch(`https://api.testnet.hiro.so/extended/v1/tx/${txId}`)
+      const data = await response.json()
+      
+      console.log('Transaction status:', data)
+      
+      if (data.tx_status === 'success') {
+        toast.success(`✅ Transaction confirmed! Stream created successfully.`)
+        return true
+      } else if (data.tx_status === 'pending') {
+        toast.info(`⏳ Transaction pending... Waiting for confirmation...`)
+        // Check again after 30 seconds
+        setTimeout(async () => {
+          const status = await checkTransactionStatus(txId)
+          if (status) loadStreams()
+        }, 30000)
+        return false
+      } else if (data.tx_status === 'abort_by_response' || data.tx_status === 'abort_by_post_condition') {
+        toast.error(`❌ Transaction failed: ${data.tx_status.replace('_', ' ')}. Check the explorer for details.`)
+        return false
+      }
+      
+      return false
+    } catch (error) {
+      console.error('Error checking transaction status:', error)
+      return false
     }
   }
 
@@ -228,10 +280,30 @@ function App() {
         network: 'testnet',
         userSession,
         postConditions: options.postConditions || [],
-        onFinish: (data) => {
+        onFinish: async (data) => {
           console.log('Transaction finished:', data)
-          toast.success(`Transaction submitted! TX: ${data.txId}`)
-          setTimeout(() => loadStreams(), 2000)
+          const txId = data.txId
+          const explorerUrl = `https://explorer.stacks.co/txid/${txId}?chain=testnet`
+          
+          toast.success(
+            `Transaction submitted! TX: ${txId.substring(0, 8)}...\n⚠️ Note: Failed transactions still cost fees!\nView: ${explorerUrl}`,
+            { 
+              duration: 6000,
+              icon: '📤'
+            }
+          )
+          
+          // Check transaction status after submission
+          setTimeout(async () => {
+            const success = await checkTransactionStatus(txId)
+            if (success) {
+              loadStreams()
+            } else {
+              // Still try to load streams in case it succeeded
+              setTimeout(() => loadStreams(), 5000)
+            }
+          }, 5000)
+          
           setLoading(false)
         },
         onCancel: () => {
