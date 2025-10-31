@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { AppConfig, UserSession, showConnect, openContractCall } from '@stacks/connect'
 import { createNetwork } from '@stacks/network'
 import { 
@@ -28,6 +28,7 @@ function App() {
   const [userData, setUserData] = useState(null)
   const [streams, setStreams] = useState([])
   const [loading, setLoading] = useState(false)
+  const hasShownContractErrorRef = useRef(false) // Track if we've shown the contract error
 
   useEffect(() => {
     // Check if user is signed in without throwing errors
@@ -232,12 +233,13 @@ function App() {
       console.log(`Total streams loaded: ${streamList.length}`, streamList)
       setStreams(streamList)
       
-      // Show error message only once if contract is missing functions
-      if (hasUndefinedFunctionError && streamList.length === 0) {
+      // Show error message only once per session if contract is missing functions
+      if (hasUndefinedFunctionError && streamList.length === 0 && !hasShownContractErrorRef.current) {
+        hasShownContractErrorRef.current = true // Mark that we've shown the error
         toast.error('⚠️ Contract missing read functions. Your streams exist on-chain but cannot be displayed. Please redeploy the contract with updated read-only functions (get-stream, get-latest-stream-id).', {
           duration: 12000
         })
-      } else if (streamList.length === 0) {
+      } else if (streamList.length === 0 && !hasUndefinedFunctionError) {
         console.log('No streams found yet - this might mean:')
         console.log('1. Transaction has not confirmed yet (wait 1-2 minutes)')
         console.log('2. Transaction failed (check explorer)')
