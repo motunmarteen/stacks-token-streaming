@@ -204,9 +204,10 @@ function App() {
         console.log('3. Streams are associated with a different address')
         console.log('4. Contract read functions are not available')
         
-        // Show helpful message to user
-        toast.info('No streams found. If you just created one, wait 1-2 minutes and click Refresh.', {
-          duration: 5000
+        // Show helpful message to user (using toast instead of toast.info)
+        toast('No streams found. If you just created one, wait 1-2 minutes and click Refresh.', {
+          duration: 5000,
+          icon: 'ℹ️'
         })
       } else {
         toast.success(`✅ Loaded ${streamList.length} stream(s)!`, {
