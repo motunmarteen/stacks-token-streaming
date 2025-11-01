@@ -18,7 +18,7 @@ import StreamList from './components/StreamList'
 import CreateStreamForm from './components/CreateStreamForm'
 import Header from './components/Header'
 
-const CONTRACT_ADDRESS = 'STFMR5YYDP5P4X3FD9Y1D3SK87X8W5J191H71T7S' // Updated: New deployment with read functions
+const CONTRACT_ADDRESS = 'STFMR5YYDP5P4X3FD9Y1D3SK87X8W5J191H71T7S'
 const CONTRACT_NAME = 'stream'
 const testnetNetwork = createNetwork('testnet')
 
@@ -29,7 +29,29 @@ function App() {
   const [userData, setUserData] = useState(null)
   const [streams, setStreams] = useState([])
   const [loading, setLoading] = useState(false)
+  const [streamTxIds, setStreamTxIds] = useState({}) // Map of streamId -> transactionId
+  const [recentlyCancelledStreams, setRecentlyCancelledStreams] = useState(new Set()) // Track recently cancelled streams
   const hasShownContractErrorRef = useRef(false) // Track if we've shown the contract error
+  const pendingStreamTxIdsRef = useRef([]) // Queue of pending transaction IDs for stream creation
+
+  // Load transaction IDs from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('streamTxIds')
+    if (stored) {
+      try {
+        setStreamTxIds(JSON.parse(stored))
+      } catch (e) {
+        console.error('Error loading stream transaction IDs:', e)
+      }
+    }
+  }, [])
+
+  // Save transaction IDs to localStorage whenever they change
+  useEffect(() => {
+    if (Object.keys(streamTxIds).length > 0) {
+      localStorage.setItem('streamTxIds', JSON.stringify(streamTxIds))
+    }
+  }, [streamTxIds])
 
   useEffect(() => {
     // Check if user is signed in without throwing errors
@@ -57,30 +79,30 @@ function App() {
       }
 
       await showConnect({
-        appDetails: {
-          name: 'Token Streaming Protocol',
-          icon: window.location.origin + '/icon.png',
-        },
-        redirectTo: '/',
+      appDetails: {
+        name: 'Token Streaming Protocol',
+        icon: window.location.origin + '/icon.png',
+      },
+      redirectTo: '/',
         network: 'testnet',
-        onFinish: () => {
+      onFinish: () => {
           try {
-            const data = userSession.loadUserData()
+        const data = userSession.loadUserData()
             console.log('User data loaded:', data)
             console.log('User address:', data.profile.stxAddress.testnet)
-            setUserData(data)
+        setUserData(data)
             toast.success(`Wallet connected! Address: ${data.profile.stxAddress.testnet.substring(0, 10)}...`)
-            loadStreams()
+        loadStreams()
           } catch (error) {
             console.error('Error loading user data:', error)
             toast.error('Connected but failed to load user data')
           }
-        },
-        onCancel: () => {
-          toast.error('Wallet connection cancelled')
-        },
-        userSession,
-      })
+      },
+      onCancel: () => {
+        toast.error('Wallet connection cancelled')
+      },
+      userSession,
+    })
     } catch (error) {
       console.error('Error connecting wallet:', error)
       toast.error(`Failed to connect wallet: ${error.message || 'Please make sure your wallet extension is installed and unlocked'}`)
@@ -94,28 +116,47 @@ function App() {
     toast.success('Wallet disconnected')
   }
 
+  // Rate limiting helper
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+  // Convert Clarity BigInt values to JavaScript numbers
+  const safeToNumber = (value) => {
+    if (value === null || value === undefined) return 0
+    if (typeof value === 'bigint') return Number(value)
+    if (typeof value === 'object' && value !== null) {
+      // If it's a Clarity value object with a value property
+      if ('value' in value) {
+        const val = value.value
+        return typeof val === 'bigint' ? Number(val) : (Number(val) || 0)
+      }
+    }
+    const num = Number(value)
+    return isNaN(num) ? 0 : num
+  }
+
   const loadStreams = async () => {
     if (!userData) return
-
+    
     try {
       setLoading(true)
       const streamList = []
       let latestId = 0
       let hasUndefinedFunctionError = false // Track if we've seen this error
+      let rateLimitHit = false // Track if we hit rate limits
 
       console.log('Loading streams for address:', userData.profile.stxAddress.testnet)
       console.log('Contract:', `${CONTRACT_ADDRESS}.${CONTRACT_NAME}`)
 
       // Try to get latest stream ID first (if function exists)
       try {
-        const latestIdResult = await callReadOnlyFunction({
+      const latestIdResult = await callReadOnlyFunction({
           network: 'testnet',
-          contractAddress: CONTRACT_ADDRESS,
-          contractName: CONTRACT_NAME,
-          functionName: 'get-latest-stream-id',
-          functionArgs: [],
-          senderAddress: userData.profile.stxAddress.testnet,
-        })
+        contractAddress: CONTRACT_ADDRESS,
+        contractName: CONTRACT_NAME,
+        functionName: 'get-latest-stream-id',
+        functionArgs: [],
+        senderAddress: userData.profile.stxAddress.testnet,
+      })
 
         console.log('Latest stream ID result:', latestIdResult)
         if (latestIdResult && latestIdResult.value !== undefined) {
@@ -128,16 +169,32 @@ function App() {
         if (e.message && e.message.includes('UndefinedFunction')) {
           hasUndefinedFunctionError = true
         }
+        // Check for rate limit errors
+        if (e.message && (e.message.includes('429') || e.message.includes('Too Many Requests') || e.message.includes('Failed to fetch'))) {
+          rateLimitHit = true
+          toast.error('Rate limit reached. Please wait a moment and refresh.', { duration: 5000 })
+        }
         latestId = null // null means we'll try sequential loading
       }
 
       // If we have a latest ID, use it. Otherwise, try sequential loading
-      if (latestId !== null && latestId > 0) {
+      if (latestId !== null && latestId > 0 && !rateLimitHit) {
         // Load streams up to the latest ID
         console.log(`Loading ${latestId} streams...`)
-        for (let i = 0; i < latestId; i++) {
-          try {
-            const streamResult = await callReadOnlyFunction({
+      for (let i = 0; i < latestId; i++) {
+          // Add delay between API calls to avoid rate limiting (200ms delay)
+          if (i > 0) {
+            await delay(200)
+          }
+          
+          // Check if we've hit rate limits in previous calls
+          if (rateLimitHit) {
+            console.log('Rate limit hit, stopping stream loading')
+            break
+          }
+          
+        try {
+          const streamResult = await callReadOnlyFunction({
               network: 'testnet',
               contractAddress: CONTRACT_ADDRESS,
               contractName: CONTRACT_NAME,
@@ -146,7 +203,8 @@ function App() {
               senderAddress: userData.profile.stxAddress.testnet,
             })
 
-            console.log(`Stream ${i} result:`, JSON.stringify(streamResult, null, 2))
+            // Log stream result without JSON.stringify (to avoid BigInt serialization errors)
+            console.log(`Stream ${i} result:`, streamResult)
             
             // Handle the response - get-stream returns (ok tuple)
             let streamData = null
@@ -178,34 +236,56 @@ function App() {
                 id: i,
                 ...streamData,
               })
-              console.log(`✅ Added stream ${i} to list:`, streamData)
+              console.log(`Stream ${i} loaded:`, streamData)
             } else {
-              console.log(`⚠️ Stream ${i} has no valid data, skipping`)
+              console.log(`Stream ${i} skipped - no valid data`)
             }
           } catch (e) {
+            // Check for rate limit errors
+            const errorMsg = e.message || e.toString() || ''
+            if (errorMsg.includes('429') || errorMsg.includes('Too Many Requests') || errorMsg.includes('Failed to fetch') || errorMsg.includes('CORS')) {
+              console.error(`Rate limit hit at stream ${i}`)
+              rateLimitHit = true
+              toast.error('Rate limit reached. Stopping stream loading. Please wait and refresh.', { duration: 5000 })
+              break
+            }
             // Stream doesn't exist - skip it
             console.log(`Stream ${i} not found:`, e.message)
           }
         }
-      } else {
+      } else if (!rateLimitHit) {
         // Sequential loading: try stream IDs starting from 0 until we hit consecutive failures
         console.log('Using sequential loading...')
         let consecutiveFailures = 0
-        const maxConsecutiveFailures = 20 // Increased to find more streams (you have multiple transactions)
+        const maxConsecutiveFailures = 10 // Reduced to avoid too many API calls
         
-        for (let i = 0; consecutiveFailures < maxConsecutiveFailures; i++) {
+        for (let i = 0; consecutiveFailures < maxConsecutiveFailures && !rateLimitHit; i++) {
+          // Add delay between API calls to avoid rate limiting (300ms delay for sequential)
+          if (i > 0) {
+            await delay(300)
+          }
+          
           try {
             console.log(`Trying to load stream ${i}...`)
             const streamResult = await callReadOnlyFunction({
               network: 'testnet',
-              contractAddress: CONTRACT_ADDRESS,
-              contractName: CONTRACT_NAME,
-              functionName: 'get-stream',
-              functionArgs: [uintCV(i)],
-              senderAddress: userData.profile.stxAddress.testnet,
-            })
+            contractAddress: CONTRACT_ADDRESS,
+            contractName: CONTRACT_NAME,
+            functionName: 'get-stream',
+            functionArgs: [uintCV(i)],
+            senderAddress: userData.profile.stxAddress.testnet,
+          })
 
-            console.log(`Stream ${i} result:`, JSON.stringify(streamResult, null, 2))
+            // Log stream result without JSON.stringify (to avoid BigInt serialization errors)
+            console.log(`Stream ${i} result:`, streamResult)
+            
+            // Check if response is an error (stream doesn't exist)
+            // get-stream returns (err u999) when stream doesn't exist
+            if (streamResult?.err || streamResult?.error) {
+              console.log(`Stream ${i} doesn't exist (error response)`)
+              consecutiveFailures++
+              continue
+            }
             
             // Convert Clarity value to JavaScript value
             let streamData = null
@@ -214,12 +294,19 @@ function App() {
               const convertedValue = cvToValue(streamResult)
               console.log(`Stream ${i} converted value:`, convertedValue)
               
+              // Check if converted value is an error
+              if (convertedValue?.err || convertedValue?.error) {
+                console.log(`Stream ${i} doesn't exist (error in converted value)`)
+                consecutiveFailures++
+                continue
+              }
+              
               // Handle different response formats
               if (convertedValue?.okay) {
                 streamData = convertedValue.okay
               } else if (convertedValue?.value) {
                 streamData = convertedValue.value
-              } else if (convertedValue && typeof convertedValue === 'object') {
+              } else if (convertedValue && typeof convertedValue === 'object' && !convertedValue.err) {
                 streamData = convertedValue
               }
             } catch (e) {
@@ -229,67 +316,82 @@ function App() {
                 streamData = streamResult.okay
               } else if (streamResult?.value?.okay) {
                 streamData = streamResult.value.okay
-              } else if (streamResult?.value) {
+              } else if (streamResult?.value && !streamResult.value.err) {
                 streamData = streamResult.value
               }
             }
             
             // Validate that we have actual stream data with sender or recipient
-            // Try multiple ways to extract the data
-            let finalData = null
-            
-            if (streamData?.data) {
-              finalData = streamData.data
-            } else if (streamData && typeof streamData === 'object') {
-              finalData = streamData
-            }
+            let finalData = streamData?.data || streamData
             
             // Check if we have valid stream data (must have sender or recipient)
             const senderValue = finalData?.sender || finalData?.['sender']
             const recipientValue = finalData?.recipient || finalData?.['recipient']
             
             // Extract actual values from Clarity types
-            const hasSender = senderValue && (
-              typeof senderValue === 'string' || 
-              (typeof senderValue === 'object' && (senderValue.address || senderValue.value))
-            )
-            const hasRecipient = recipientValue && (
-              typeof recipientValue === 'string' || 
-              (typeof recipientValue === 'object' && (recipientValue.address || recipientValue.value))
-            )
+            const getPrincipalValue = (val) => {
+              if (!val) return null
+              if (typeof val === 'string') return val
+              if (typeof val === 'object' && val.address) return val.address
+              if (typeof val === 'object' && val.value) return val.value
+              return null
+            }
             
-            if (finalData && (hasSender || hasRecipient)) {
-              streamList.push({
-                id: i,
-                ...finalData,
+            const senderStr = getPrincipalValue(senderValue)
+            const recipientStr = getPrincipalValue(recipientValue)
+            
+            // Only add if we have BOTH sender AND recipient (valid stream)
+            if (finalData && senderStr && recipientStr) {
+            streamList.push({
+              id: i,
+                sender: senderStr,
+                recipient: recipientStr,
+                balance: safeToNumber(finalData.balance || finalData['balance']),
+                'withdrawn-balance': safeToNumber(finalData['withdrawn-balance'] || finalData.withdrawnBalance),
+                'payment-per-block': safeToNumber(finalData['payment-per-block'] || finalData.paymentPerBlock),
+                timeframe: finalData.timeframe || finalData['timeframe'],
+                status: safeToNumber(finalData.status || finalData['status']),
+                'pause-block': safeToNumber(finalData['pause-block'] || finalData.pauseBlock),
+                'total-paused-blocks': safeToNumber(finalData['total-paused-blocks'] || finalData.totalPausedBlocks),
               })
-              console.log(`✅ Added stream ${i} to list:`, finalData)
-              consecutiveFailures = 0 // Reset counter on success
+              console.log(`Stream ${i} loaded`, { 
+                sender: senderStr, 
+                recipient: recipientStr
+              })
+              consecutiveFailures = 0
             } else {
-              console.log(`⚠️ Stream ${i} has no valid sender/recipient. Skipping.`, {
-                streamData,
-                finalData,
-                senderValue,
-                recipientValue
+              console.log(`Stream ${i} skipped - invalid sender/recipient`, {
+                senderStr,
+                recipientStr,
+                finalData
               })
               consecutiveFailures++
             }
           } catch (e) {
-            console.error(`❌ Stream ${i} error:`, e)
+            console.error(`Stream ${i} error:`, e)
             console.error(`Error details:`, {
               message: e.message,
               stack: e.stack,
               name: e.name
             })
             
+            // Check for rate limit errors first
+            const errorMsg = e.message || e.toString() || ''
+            if (errorMsg.includes('429') || errorMsg.includes('Too Many Requests') || errorMsg.includes('Failed to fetch') || errorMsg.includes('CORS')) {
+              console.error(`Rate limit hit at stream ${i}`)
+              rateLimitHit = true
+              toast.error('Rate limit reached. Stopping stream loading. Please wait and refresh.', { duration: 5000 })
+              break
+            }
+            
             // If it's an undefined function error, stop trying - contract doesn't have the function
             if (e.message && e.message.includes('UndefinedFunction')) {
-              console.error('❌ Contract does not have get-stream function. The deployed contract is missing read-only functions.')
+              console.error('Contract missing get-stream function')
               hasUndefinedFunctionError = true
               // Stop searching - contract doesn't have this function
               break
             }
-            
+
             consecutiveFailures++
             if (consecutiveFailures >= maxConsecutiveFailures) {
               console.log(`Stopping after ${consecutiveFailures} consecutive failures`)
@@ -302,12 +404,65 @@ function App() {
       console.log(`Total streams loaded: ${streamList.length}`, streamList)
       setStreams(streamList)
       
+      // Clear recently cancelled streams that are now confirmed cancelled
+      setRecentlyCancelledStreams(prev => {
+        const updated = new Set(prev)
+        streamList.forEach(stream => {
+          const streamStatus = safeToNumber(stream.status)
+          if (streamStatus === 2 && updated.has(stream.id)) {
+            console.log(`Stream ${stream.id} confirmed cancelled`)
+            updated.delete(stream.id)
+          }
+        })
+        return updated
+      })
+      
+      // Match pending transaction IDs to streams
+      if (pendingStreamTxIdsRef.current.length > 0 && streamList.length > 0) {
+        // Sort streams by ID (newest first)
+        const sortedStreams = [...streamList].sort((a, b) => b.id - a.id)
+        const pendingTxIds = [...pendingStreamTxIdsRef.current]
+        
+        // Match each pending txId to a stream that doesn't have one yet
+        setStreamTxIds(prevTxIds => {
+          const updated = { ...prevTxIds }
+          let txIdIndex = 0
+          
+          for (const stream of sortedStreams) {
+            if (!updated[stream.id] && txIdIndex < pendingTxIds.length) {
+              updated[stream.id] = pendingTxIds[txIdIndex]
+              console.log(`Matched txId to stream ${stream.id}`)
+              txIdIndex++
+            }
+          }
+          
+          // Remove matched txIds from pending queue
+          if (txIdIndex > 0) {
+            pendingStreamTxIdsRef.current = pendingTxIds.slice(txIdIndex)
+          }
+          
+          return updated
+        })
+      }
+      
       // Show error message only once per session if contract is missing functions
       if (hasUndefinedFunctionError && streamList.length === 0 && !hasShownContractErrorRef.current) {
         hasShownContractErrorRef.current = true // Mark that we've shown the error
         toast.error('⚠️ Contract missing read functions. Your streams exist on-chain but cannot be displayed. Please redeploy the contract with updated read-only functions (get-stream, get-latest-stream-id).', {
           duration: 12000
         })
+      } else if (rateLimitHit) {
+        // Rate limit was hit - partial results might be available
+        if (streamList.length > 0) {
+          toast(`⚠️ Rate limit reached. Loaded ${streamList.length} stream(s) before stopping. Please wait a moment and refresh to load more.`, {
+            duration: 6000,
+            icon: '⚠️'
+          })
+        } else {
+          toast.error('Rate limit reached. Please wait 30-60 seconds and refresh.', {
+            duration: 5000
+          })
+        }
       } else if (streamList.length === 0 && !hasUndefinedFunctionError) {
         console.log('No streams found yet - this might mean:')
         console.log('1. Transaction has not confirmed yet (wait 1-2 minutes)')
@@ -329,7 +484,11 @@ function App() {
       const errorMessage = error?.message || error?.toString() || 'Unknown error'
       
       // More helpful error messages
-      if (errorMessage.includes('ERR_NAME_NOT_RESOLVED') || errorMessage.includes('network') || errorMessage.includes('fetch')) {
+      if (errorMessage.includes('429') || errorMessage.includes('Too Many Requests')) {
+        toast.error('Rate limit reached. Please wait 30-60 seconds and refresh.', {
+          duration: 5000
+        })
+      } else if (errorMessage.includes('ERR_NAME_NOT_RESOLVED') || errorMessage.includes('network') || errorMessage.includes('fetch')) {
         toast.error('Cannot connect to Stacks API. Please check your internet connection and try again.')
         console.error('Network connectivity issue. Check if you can access: https://api.testnet.hiro.so')
       } else if (errorMessage.includes('contract')) {
@@ -355,7 +514,7 @@ function App() {
       console.log('Transaction status:', data)
       
       if (data.tx_status === 'success') {
-        toast.success(`✅ Transaction confirmed! Stream created successfully.`)
+        toast.success(`✅ Transaction confirmed successfully!`)
         return true
       } else if (data.tx_status === 'pending') {
         toast.info(`⏳ Transaction pending... Waiting for confirmation...`)
@@ -366,7 +525,41 @@ function App() {
         }, 30000)
         return false
       } else if (data.tx_status === 'abort_by_response' || data.tx_status === 'abort_by_post_condition') {
-        toast.error(`❌ Transaction failed: ${data.tx_status.replace('_', ' ')}. Check the explorer for details.`)
+        // Try to extract error details from the transaction result
+        let errorMessage = `Transaction failed: ${data.tx_status.replace(/_/g, ' ')}`
+        
+        // Check for contract error details
+        if (data.tx_result && data.tx_result.repr) {
+          const errorRepr = data.tx_result.repr
+          console.error('Contract error:', errorRepr)
+          
+          // Parse common error codes
+          if (errorRepr.includes('u0') || errorRepr.includes('ERR_UNAUTHORIZED')) {
+            errorMessage = '❌ Unauthorized: You are not authorized to perform this action. Only the sender can pause/cancel streams, and only the recipient can withdraw.'
+          } else if (errorRepr.includes('u1') || errorRepr.includes('ERR_INVALID_SIGNATURE')) {
+            errorMessage = '❌ Invalid signature: Signature verification failed. This usually happens with update-details function.'
+          } else if (errorRepr.includes('u2') || errorRepr.includes('ERR_STREAM_STILL_ACTIVE')) {
+            errorMessage = '❌ Stream still active: The stream is still active and cannot be refunded yet.'
+          } else if (errorRepr.includes('u3') || errorRepr.includes('ERR_INVALID_STREAM_ID')) {
+            errorMessage = '❌ Invalid stream ID: Stream does not exist or invalid stream ID provided.'
+          } else if (errorRepr.includes('u4') || errorRepr.includes('ERR_STREAM_NOT_PAUSED')) {
+            errorMessage = '❌ Stream is not paused: Cannot resume a stream that is not paused.'
+          } else if (errorRepr.includes('u5') || errorRepr.includes('ERR_STREAM_ALREADY_PAUSED')) {
+            errorMessage = '❌ Stream already paused: Cannot pause a stream that is already paused.'
+          } else if (errorRepr.includes('u6') || errorRepr.includes('ERR_STREAM_CANCELLED')) {
+            errorMessage = '❌ Stream cancelled: Cannot withdraw from a cancelled stream. Cancelled streams cannot be withdrawn from.'
+          } else {
+            errorMessage = `❌ Contract error: ${errorRepr}`
+          }
+          
+          // Log full transaction data for debugging
+          console.error('Full transaction data:', JSON.stringify(data, null, 2))
+          console.error('Transaction result:', data.tx_result)
+          console.error('Error representation:', errorRepr)
+        }
+        
+        toast.error(errorMessage, { duration: 8000 })
+        console.error('Transaction failed:', data)
         return false
       }
       
@@ -399,7 +592,7 @@ function App() {
         contractName: CONTRACT_NAME,
         functionName,
         functionArgs,
-        network: 'testnet',
+        network: testnetNetwork, // Use network object instead of string
         userSession,
         postConditionMode: PostConditionMode.Allow, // Allow transaction even if post-conditions don't match exactly
         postConditions: options.postConditions || [],
@@ -407,6 +600,16 @@ function App() {
           console.log('Transaction finished:', data)
           const txId = data.txId
           const explorerUrl = `https://explorer.stacks.co/txid/${txId}?chain=testnet`
+          
+          // If this is a stream creation, add the transaction ID to pending queue
+          const isStreamCreation = functionName === 'stream-to'
+          const isCancellation = functionName === 'cancel-stream'
+          const cancelledStreamId = options.streamId
+          
+          if (isStreamCreation) {
+            pendingStreamTxIdsRef.current.push(txId)
+            console.log('Stream creation transaction added to queue:', txId)
+          }
           
           toast.success(
             `Transaction submitted! TX: ${txId.substring(0, 8)}...\n⏳ Waiting for confirmation...\nView: ${explorerUrl}`,
@@ -419,29 +622,46 @@ function App() {
           // Reset loading state immediately after submission
           setLoading(false)
           
+          // For cancellations, reload more aggressively
+          const reloadDelays = isCancellation ? [10000, 20000, 30000, 45000, 60000] : [10000, 20000]
+          
           // Wait a bit for transaction to be included, then check status and load streams
           setTimeout(async () => {
             console.log('Checking transaction status...')
             const success = await checkTransactionStatus(txId)
             
-            // Always try to load streams after a delay (transaction might be confirmed)
-            console.log('Loading streams after transaction...')
-            setTimeout(() => {
-              loadStreams()
-            }, 10000) // Wait 10 seconds for indexing
+            // Multiple reload attempts for cancellations to ensure UI updates
+            reloadDelays.forEach((delay, index) => {
+              setTimeout(() => {
+                console.log(`Reloading streams (attempt ${index + 1}/${reloadDelays.length})...`)
+                loadStreams()
+              }, delay)
+            })
             
             if (success) {
-              // If confirmed, load streams again after a bit more time
-              setTimeout(() => {
-                console.log('Reloading streams after confirmation...')
-                loadStreams()
-              }, 20000)
+              // If confirmed, do immediate reload and then more delayed reloads
+              console.log('Transaction confirmed! Reloading streams immediately...')
+              loadStreams()
+              
+              // Additional reloads for cancellations to catch status updates
+              if (isCancellation) {
+                setTimeout(() => {
+                  console.log('Extra reload for cancelled stream status update...')
+                  loadStreams()
+                }, 30000)
+              }
             }
           }, 15000) // Wait 15 seconds before first check
         },
         onCancel: () => {
           console.log('Transaction cancelled')
           toast.error('Transaction cancelled')
+          setLoading(false)
+        },
+        onError: (error) => {
+          console.error('Transaction error in openContractCall:', error)
+          const errorMessage = error?.message || error?.toString() || 'Unknown error'
+          toast.error(`Transaction error: ${errorMessage}`)
           setLoading(false)
         },
       })
@@ -458,16 +678,54 @@ function App() {
     }
   }
 
-  const pauseStream = (streamId) => {
-    handleContractCall('pause-stream', [uintCV(streamId)])
+  const pauseStream = async (streamId) => {
+    console.log('Pausing stream:', streamId)
+    try {
+      await handleContractCall('pause-stream', [uintCV(streamId)])
+    } catch (error) {
+      console.error('Error pausing stream:', error)
+      toast.error(`Failed to pause stream: ${error.message || error}`)
+    }
   }
 
-  const resumeStream = (streamId) => {
-    handleContractCall('resume-stream', [uintCV(streamId)])
+  const resumeStream = async (streamId) => {
+    console.log('Resuming stream:', streamId)
+    try {
+      await handleContractCall('resume-stream', [uintCV(streamId)])
+    } catch (error) {
+      console.error('Error resuming stream:', error)
+      toast.error(`Failed to resume stream: ${error.message || error}`)
+    }
   }
 
-  const cancelStream = (streamId) => {
-    handleContractCall('cancel-stream', [uintCV(streamId)])
+  const cancelStream = async (streamId) => {
+    console.log('Cancelling stream:', streamId)
+    
+    // Check if stream is already cancelled
+    const stream = streams.find(s => s.id === streamId)
+    if (stream) {
+      const streamStatus = safeToNumber(stream.status)
+      if (streamStatus === 2) {
+        toast.error('Stream is already cancelled!', { duration: 3000 })
+        return
+      }
+    }
+    
+    // Immediately mark as cancelled optimistically
+    setRecentlyCancelledStreams(prev => new Set([...prev, streamId]))
+    try {
+      console.log('Calling cancel-stream with streamId:', streamId, 'type:', typeof streamId)
+      await handleContractCall('cancel-stream', [uintCV(streamId)], { streamId })
+    } catch (error) {
+      console.error('Error cancelling stream:', error)
+      toast.error(`Failed to cancel stream: ${error.message || error}`)
+      // Remove from cancelled set if it failed
+      setRecentlyCancelledStreams(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(streamId)
+        return newSet
+      })
+    }
   }
 
   const withdraw = (streamId) => {
@@ -477,8 +735,7 @@ function App() {
   const createStream = async (formData) => {
     const { recipient, initialBalance, startBlock, stopBlock, paymentPerBlock } = formData
     
-    // Note: openContractCall/wallet handles post-conditions automatically
-    // The wallet UI will show the STX transfer to the user for approval
+    // Wallet handles post-conditions and shows STX transfer for approval
     await handleContractCall('stream-to', [
       principalCV(recipient),
       uintCV(initialBalance),
@@ -523,6 +780,8 @@ function App() {
               onWithdraw={withdraw}
               loading={loading}
               onRefresh={loadStreams}
+              streamTxIds={streamTxIds}
+              recentlyCancelledStreams={recentlyCancelledStreams}
             />
           </>
         ) : (

@@ -35,7 +35,7 @@ This project implements a token streaming protocol that allows continuous paymen
 
 ### Smart Contract (`contracts/stream.clar`)
 - **Language**: Clarity 3
-- **Functions**: 6 public functions, 4 read-only functions
+- **Functions**: 9 public functions, 5 read-only functions
 - **Storage**: Data variables and mappings for stream management
 - **Error Handling**: Comprehensive error codes for different failure scenarios
 
@@ -44,35 +44,39 @@ This project implements a token streaming protocol that allows continuous paymen
 2. `refuel`: Add tokens to existing streams
 3. `withdraw`: Withdraw accumulated tokens
 4. `refund`: Reclaim excess tokens after stream ends
-5. `update-details`: Modify stream parameters with signature verification
-6. `balance-of`: Calculate withdrawable balances
-7. `calculate-block-delta`: Calculate active block periods
-8. `hash-stream`: Generate cryptographic hashes for signing
-9. `validate-signature`: Verify ECDSA signatures
+5. `pause-stream`: Pause an active stream
+6. `resume-stream`: Resume a paused stream
+7. `cancel-stream`: Cancel a stream and refund unused tokens
+8. `update-details`: Modify stream parameters with signature verification
+9. `balance-of`: Calculate withdrawable balances
+10. `get-stream-status`: Get current stream status
+11. `get-stream`: Get full stream data
+12. `get-latest-stream-id`: Get the latest stream ID
 
 ## 🧪 Testing
 
-Comprehensive test suite with **10 test cases** covering:
+Comprehensive test suite covering:
 - Stream creation and initialization
 - Refueling functionality (authorized and unauthorized)
 - Token withdrawal over time
+- Pause and resume functionality
+- Stream cancellation and refunds
 - Access control and authorization
 - Signature verification and validation
 - Stream parameter updates
 - Error handling and edge cases
 
-**Test Results**: ✅ All 10 tests passing
+Run tests with: `npm test`
 
 ## 🚀 Deployment
 
 ### Contract Details
 - **Network**: Stacks Testnet
-- **Contract Address**: `ST3DJAD94M03E59W51PWD3VT0XH3S8VXZPXT59P5G.stream`
-- **Deployment Cost**: 158,591 microSTX
+- **Contract Address**: `STFMR5YYDP5P4X3FD9Y1D3SK87X8W5J191H71T7S.stream`
 - **Status**: ✅ Live and functional
 
 ### View on Block Explorer
-[Stacks Testnet Explorer](https://explorer.stacks.co/?chain=testnet&contract=ST3DJAD94M03E59W51PWD3VT0XH3S8VXZPXT59P5G.stream)
+[Stacks Testnet Explorer](https://explorer.stacks.co/?chain=testnet&contract=STFMR5YYDP5P4X3FD9Y1D3SK87X8W5J191H71T7S.stream)
 
 ## 📋 Course Requirements Completed
 
@@ -119,22 +123,22 @@ This project fulfills all requirements from the **LearnWeb3 Stacks Developer Deg
 
 ## 🌐 Frontend Interface
 
-A simple web interface is included to interact with the deployed contract:
+A modern React frontend is included to interact with the deployed contract. The frontend is built with React, TailwindCSS, and Stacks.js for wallet integration.
 
 ### Quick Start:
-1. Navigate to the `frontend/` directory
-2. Open `index.html` in your web browser
-3. Connect your Leather Wallet (Testnet)
-4. Start creating and managing streams!
+1. Navigate to the `react-frontend/` directory
+2. Run `npm install` to install dependencies
+3. Run `npm run dev` to start the development server
+4. Connect your Leather or Xverse wallet (Testnet)
+5. Start creating and managing streams!
 
 ### Features:
-- ✅ Create payment streams
-- ✅ Refuel existing streams
-- ✅ Withdraw accumulated tokens
-- ✅ Request refunds after stream ends
-- ✅ Check balances for any address
-
-See `frontend/README.md` for detailed instructions.
+- Create payment streams with custom parameters
+- Pause and resume active streams
+- Cancel streams and receive automatic refunds
+- Withdraw accumulated tokens
+- Real-time stream status and progress tracking
+- Transaction history and explorer links
 
 ## 📁 Project Structure
 
@@ -144,9 +148,12 @@ stacks-token-streaming/
 │   └── stream.clar          # Main smart contract
 ├── tests/
 │   └── stream.test.ts       # Comprehensive test suite
-├── frontend/
-│   ├── index.html          # Web interface
-│   └── README.md           # Frontend documentation
+├── react-frontend/         # React frontend application
+│   ├── src/               # Source code
+│   ├── package.json       # Frontend dependencies
+│   └── vite.config.js     # Build configuration
+├── frontend/              # Simple HTML frontend
+│   └── index.html         # Basic web interface
 ├── settings/
 │   ├── Devnet.toml         # Development configuration
 │   └── Testnet.toml        # Testnet configuration

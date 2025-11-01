@@ -287,9 +287,8 @@ describe("Token Streaming Contract Tests", () => {
       );
       
       const statusResult = cvToValue(streamStatus.result);
-      // get-stream-status returns (ok (response uint uint)), so we need to unwrap twice
       const status = statusResult.value?.value !== undefined ? statusResult.value.value : (statusResult.value !== undefined ? statusResult.value : statusResult);
-      expect(Number(status)).toBe(1); // STATUS_PAUSED = 1
+      expect(Number(status)).toBe(1)
     });
 
     it("should prevent pause from non-sender", () => {
@@ -300,7 +299,7 @@ describe("Token Streaming Contract Tests", () => {
         randomUser
       );
       
-      expect(pauseResult.result).toBeErr(Cl.uint(0)); // ERR_UNAUTHORIZED
+      expect(pauseResult.result).toBeErr(Cl.uint(0));
     });
 
     it("should resume a paused stream", () => {
@@ -326,16 +325,13 @@ describe("Token Streaming Contract Tests", () => {
       );
       
       const statusResult = cvToValue(streamStatus.result);
-      // get-stream-status returns (ok (response uint uint)), so we need to unwrap twice
       const status = statusResult.value?.value !== undefined ? statusResult.value.value : (statusResult.value !== undefined ? statusResult.value : statusResult);
-      expect(Number(status)).toBe(0); // STATUS_ACTIVE = 0
+      expect(Number(status)).toBe(0)
     });
 
     it("should not accumulate tokens while paused", () => {
-      // Pause the stream - this sets pause-block to current block height
       simnet.callPublicFn("stream", "pause-stream", [Cl.uint(0)], sender);
       
-      // Get balance immediately after pausing (should be same or slightly more due to pause-block)
       const balanceAfterPause = simnet.callReadOnlyFn(
         "stream",
         "balance-of",
@@ -346,7 +342,6 @@ describe("Token Streaming Contract Tests", () => {
       const balanceAfterPauseValue = cvToValue(balanceAfterPause.result);
       const balanceAfterPauseNum = Number(balanceAfterPauseValue.value || balanceAfterPauseValue);
       
-      // Mine blocks while paused - balance should not increase
       simnet.mineEmptyBlock();
       simnet.mineEmptyBlock();
       simnet.mineEmptyBlock();
@@ -361,8 +356,6 @@ describe("Token Streaming Contract Tests", () => {
       const balanceAfter = cvToValue(balanceWhilePaused.result);
       const balanceAfterNum = Number(balanceAfter.value || balanceAfter);
       
-      // Balance should remain the same (or at most equal to balance after pause)
-      // The pause should freeze accumulation at the pause-block
       expect(balanceAfterNum).toBe(balanceAfterPauseNum);
     });
 
@@ -403,9 +396,8 @@ describe("Token Streaming Contract Tests", () => {
       );
       
       const statusResult = cvToValue(streamStatus.result);
-      // get-stream-status returns (ok (response uint uint)), so we need to unwrap twice
       const status = statusResult.value?.value !== undefined ? statusResult.value.value : (statusResult.value !== undefined ? statusResult.value : statusResult);
-      expect(Number(status)).toBe(2); // STATUS_CANCELLED = 2
+      expect(Number(status)).toBe(2);
       
       expect(cancelResult.events[0].event).toBe("stx_transfer_event");
     });
